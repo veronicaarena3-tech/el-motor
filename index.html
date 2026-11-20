@@ -102,15 +102,22 @@ function pedirCuenta() {
 }
 
 let ultimoBien = 0, timer = null, ocupado = false;
+// Cada orden vive unos segundos (se pone y se saca siguiendo a la cuenta copiada): una sola mirada puede caer entre una
+// y otra. Si no ve ninguna, mira dos veces más; y recuerda la última vez que vio órdenes puestas (20/11).
+let ordenVista = 0;
+try { ordenVista = Number(localStorage.getItem('ordenVista')) || 0; } catch { /* sin almacenamiento: empieza en 0 */ }
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 async function actualizar(cuenta) {
   if (ocupado) return; ocupado = true;
   try {
-    const [perp, spot, ordenes, fills] = await Promise.all([
+    let [perp, spot, ordenes, fills] = await Promise.all([
       pedir({ type: 'clearinghouseState', user: cuenta, dex: DEX }),
       pedir({ type: 'spotClearinghouseState', user: cuenta }),
       pedir({ type: 'openOrders', user: cuenta, dex: DEX }),
       pedir({ type: 'userFills', user: cuenta }),
     ]);
+    for (let i = 0; i < 2 && !(Array.isArray(ordenes) && ordenes.length); i++) { await esperar(1500); ordenes = await pedir({ type: 'openOrders', user: cuenta, dex: DEX }); }
+    if (Array.isArray(ordenes) && ordenes.length) { ordenVista = Date.now(); try { localStorage.setItem('ordenVista', String(ordenVista)); } catch { /* */ } }
     ultimoBien = Date.now();
     pintar({ perp, spot, ordenes: Array.isArray(ordenes) ? ordenes : [], fills: Array.isArray(fills) ? fills : [] });
   } catch (e) {
@@ -125,10 +132,13 @@ function pintar({ perp, spot, ordenes, fills }) {
   const p = posiciones.find((x) => +x.szi !== 0);
   const abierta = posiciones.reduce((t, x) => t + +x.unrealizedPnl, 0);
   const valorPos = posiciones.reduce((t, x) => t + Math.abs(+x.positionValue), 0), tam = p ? +p.szi : 0;
-  let dia = 0, total = 0, nDia = 0, ultima = 0;
-  for (const f of fills) { const n = +f.closedPnl - +f.fee; total += n; if (f.time >= hoy) { dia += n; nDia++; } if (f.time > ultima) ultima = f.time; }
+  let dia = 0, total = 0, nDia = 0, ultima = 0, ultFill = null;
+  for (const f of fills) { const n = +f.closedPnl - +f.fee; total += n; if (f.time >= hoy) { dia += n; nDia++; } if (f.time > ultima) { ultima = f.time; ultFill = f; } }
   const nuestras = ordenes;
-  for (const o of nuestras) if (o.timestamp > ultima) ultima = o.timestamp;
+  const operando = nuestras.length > 0 || Date.now() - ordenVista < 3 * 60000;
+  // Si lo último fue cerrar tomando (el freno, un arranque o la salida de los 60 min) y no hay órdenes: puede ser la pausa
+  // del freno, que dura 30 minutos desde el cierre.
+  const pausa = !operando && !p && ultFill && ultFill.crossed && Date.now() - ultFill.time < 31 * 60000;
   const usdc = (spot.balances || []).find((b) => b.coin === 'USDC');
   const saldo = usdc ? +usdc.total : 0;
   const diaCon = dia + abierta, totalCon = total + abierta;
@@ -139,7 +149,9 @@ function pintar({ perp, spot, ordenes, fills }) {
   else if (valorPos > 3 * ORDEN_MAX + 5 || nuestras.length > 6) { tipo = 'alto'; grande = 'Algo raro: el guardián actúa'; chico = 'Hay más posición u órdenes de lo permitido. El guardián las saca solo y avisa a Claude.'; }
   else if (diaCon <= -0.7 * TOPE_DIA) { tipo = 'ojo'; grande = 'Atención: cerca del tope de hoy'; chico = `Hoy va ${usd(diaCon)}. Si llega a −${TOPE_DIA} USD, para solo.`; }
   else if (!fills.length && !nuestras.length) { tipo = 'nada'; grande = 'Todavía sin operar'; chico = 'La cuenta no tiene operaciones ni órdenes. Cuando el programa arranque, aparecen acá.'; }
-  else if (!nuestras.length && !tam && Date.now() - ultima > 30 * 60000) { tipo = 'ojo'; grande = `Quieto ${haceCuanto(ultima)}`; chico = 'Sin órdenes ni posición: no hay plata en juego. Puede ser que el mercado esté quieto o que el programa esté parado; el guardián le avisa a Claude.'; }
+  else if (pausa) { tipo = 'ok'; grande = 'En pausa, sin plata en juego'; chico = `A las ${hora(ultFill.time)} cerró todo. Si fue el freno, vuelve a operar solo a las ${hora(ultFill.time + 30 * 60000)}. Hoy va ${usd(diaCon)}.`; }
+  else if (!operando && !tam && Date.now() - ultima > 30 * 60000) { tipo = 'ojo'; grande = `Quieto ${haceCuanto(ultima)}`; chico = 'Sin órdenes ni posición: no hay plata en juego. Puede estar parado por el cupo de pedidos o detenido; si el programa se cae, el guardián avisa.'; }
+  else if (operando) { tipo = 'ok'; grande = 'Operando'; chico = `Pone y saca órdenes siguiendo a la cuenta copiada. Hoy va ${usd(diaCon)}. Topes: −${TOPE_DIA} USD por día y −${TOPE_TOTAL} en total.`; }
   else { tipo = 'ok'; grande = 'En orden'; chico = `Hoy va ${usd(diaCon)}. Topes: −${TOPE_DIA} USD por día y −${TOPE_TOTAL} en total.`; }
 
   const sem = el('div', { class: 'semaforo ' + tipo, role: 'status' }, el('div', { class: 'grande' }, grande), el('div', { class: 'chico' }, chico));
@@ -149,7 +161,7 @@ function pintar({ perp, spot, ordenes, fills }) {
     t('Ganancia total', usd(totalCon), 'desde que empezó', clase(totalCon)),
     t('Plata en la cuenta', plano(saldo), 'USDC'),
     t('Posición ahora', tam ? `${tam > 0 ? 'Compró' : 'Vendió'} ${plano(valorPos)}` : 'Ninguna', tam ? `resultado abierto ${usd(abierta)}` : 'todo cerrado'),
-    t('Última actividad', ultima ? haceCuanto(ultima) : '—', nuestras.length === 1 ? '1 orden puesta ahora' : `${nuestras.length} órdenes puestas ahora`, '', true),
+    t('Última operación', ultima ? haceCuanto(ultima) : '—', nuestras.length === 1 ? '1 orden puesta ahora' : `${nuestras.length} órdenes puestas ahora`, '', true),
   );
   const lista = el('ul', { class: 'ops' });
   const ult = fills.slice().sort((a, b) => b.time - a.time).slice(0, 10);
