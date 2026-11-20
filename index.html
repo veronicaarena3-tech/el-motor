@@ -121,12 +121,13 @@ async function actualizar(cuenta) {
 function pintar({ perp, spot, ordenes, fills }) {
   const hoy = inicioDelDia();
   const posiciones = (perp.assetPositions || []).map((x) => x.position);
-  const p = posiciones.find((x) => x.coin === MERCADO);
+  // Todos los mercados del dex: el motor puede cambiar de mercado (20/11: io:OAI y después io:PRL).
+  const p = posiciones.find((x) => +x.szi !== 0);
   const abierta = posiciones.reduce((t, x) => t + +x.unrealizedPnl, 0);
-  const valorPos = p ? Math.abs(+p.positionValue) : 0, tam = p ? +p.szi : 0;
+  const valorPos = posiciones.reduce((t, x) => t + Math.abs(+x.positionValue), 0), tam = p ? +p.szi : 0;
   let dia = 0, total = 0, nDia = 0, ultima = 0;
   for (const f of fills) { const n = +f.closedPnl - +f.fee; total += n; if (f.time >= hoy) { dia += n; nDia++; } if (f.time > ultima) ultima = f.time; }
-  const nuestras = ordenes.filter((o) => o.coin === MERCADO);
+  const nuestras = ordenes;
   for (const o of nuestras) if (o.timestamp > ultima) ultima = o.timestamp;
   const usdc = (spot.balances || []).find((b) => b.coin === 'USDC');
   const saldo = usdc ? +usdc.total : 0;
@@ -151,11 +152,11 @@ function pintar({ perp, spot, ordenes, fills }) {
     t('Última actividad', ultima ? haceCuanto(ultima) : '—', nuestras.length === 1 ? '1 orden puesta ahora' : `${nuestras.length} órdenes puestas ahora`, '', true),
   );
   const lista = el('ul', { class: 'ops' });
-  const ult = fills.filter((f) => f.coin === MERCADO).sort((a, b) => b.time - a.time).slice(0, 10);
+  const ult = fills.slice().sort((a, b) => b.time - a.time).slice(0, 10);
   if (!ult.length) lista.append(el('li', {}, el('span', { class: 'que' }, 'Sin operaciones todavía')));
   for (const f of ult) {
-    const n = +f.closedPnl - +f.fee, monto = +f.px * +f.sz;
-    lista.append(el('li', {}, el('span', { class: 'que' }, `${hora(f.time)} · ${f.side === 'B' ? 'compró' : 'vendió'} ${plano(monto)}`), el('span', { class: 'res ' + clase(n) }, usd(n))));
+    const n = +f.closedPnl - +f.fee, monto = +f.px * +f.sz, donde = String(f.coin).split(':').pop();
+    lista.append(el('li', {}, el('span', { class: 'que' }, `${hora(f.time)} · ${f.side === 'B' ? 'compró' : 'vendió'} ${plano(monto)} en ${donde}`), el('span', { class: 'res ' + clase(n) }, usd(n))));
   }
   const pie = el('div', { class: 'pie' },
     el('p', {}, `Actualizado a las ${hora(ultimoBien)}. Se actualiza solo cada 20 segundos.`),
