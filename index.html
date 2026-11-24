@@ -312,7 +312,11 @@ function dolarArriba(deHoy, dia) {
   return { nivel, cuando };
 }
 
-let ultimoBien = 0, timer = null, ocupado = false;
+// LA PÁGINA LEE POCO (24/11): la bolsa cuenta las lecturas por conexión, y en casa el celu comparte la conexión con los
+// programas del motor. Con el celu abierto los programas recibían rechazos (429). Por eso: se actualiza una vez por minuto,
+// las órdenes puestas se miran cada dos minutos, y si la bolsa pide esperar, la página espera dos minutos sin insistir.
+const CADA_MS = 60000, ORDENES_CADA_MS = 110000, ESPERA_429_MS = 120000;
+let ultimoBien = 0, timer = null, ocupado = false, esperaHasta = 0, ordenesMem = [], ordenesT = 0;
 // Cada orden vive unos segundos (se pone y se saca siguiendo a la cuenta copiada): una sola mirada puede caer entre una
 // y otra. Si no ve ninguna, mira dos veces más; y recuerda la última vez que vio órdenes puestas (20/11).
 let ordenVista = 0;
@@ -363,23 +367,26 @@ function guardarLibro(cuenta, dias, ultimas, hoy) {
   try { localStorage.setItem(claveLibro(cuenta), JSON.stringify({ hasta: inicioDe(hoy), dias: cerrados, ult })); } catch { /* sin lugar: la próxima vez lee todo de nuevo */ }
 }
 async function actualizar(cuenta) {
-  if (ocupado) return; ocupado = true;
+  if (ocupado || Date.now() < esperaHasta) return; ocupado = true;
   try {
     // El motor opera en dos bolsas chicas (io y xyz): se leen las dos y se juntan.
     const leerOrdenes = async () => (await Promise.all(DEXES.map((dex) => pedir({ type: 'openOrders', user: cuenta, dex })))).flatMap((x) => (Array.isArray(x) ? x : []));
+    const tocaOrdenes = Date.now() - ordenesT >= ORDENES_CADA_MS;
     let [perps, spot, ordenes, fills] = await Promise.all([
       Promise.all(DEXES.map((dex) => pedir({ type: 'clearinghouseState', user: cuenta, dex }))),
       pedir({ type: 'spotClearinghouseState', user: cuenta }),
-      leerOrdenes(),
+      tocaOrdenes ? leerOrdenes() : ordenesMem,
       leerFills(cuenta),
     ]);
     const perp = { assetPositions: perps.flatMap((x) => x.assetPositions || []) };
     // Sin órdenes a la vista se mira una vez más, y sólo si hace poco las hubo (24/11: antes miraba dos veces más siempre).
-    if (!ordenes.length && Date.now() - ordenVista < 3 * 60000) { await esperar(1500); ordenes = await leerOrdenes(); }
+    if (tocaOrdenes && !ordenes.length && Date.now() - ordenVista < 3 * 60000) { await esperar(1500); ordenes = await leerOrdenes(); }
+    if (tocaOrdenes) { ordenesMem = Array.isArray(ordenes) ? ordenes : []; ordenesT = Date.now(); }
     if (Array.isArray(ordenes) && ordenes.length) { ordenVista = Date.now(); try { localStorage.setItem('ordenVista', String(ordenVista)); } catch { /* */ } }
     ultimoBien = Date.now();
     pintar({ cuenta, perp, spot, ordenes: Array.isArray(ordenes) ? ordenes : [], fills: Array.isArray(fills) ? fills : [] });
   } catch (e) {
+    if (/429/.test(String(e && e.message))) esperaHasta = Date.now() + ESPERA_429_MS;
     pintarError(e);
   } finally { ocupado = false; }
 }
@@ -463,7 +470,7 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
     t('Ganancia total', usd(totalCon), !completo ? 'faltan operaciones viejas: la bolsa no las dio todas' : primerDia ? `desde el ${+primerDia.slice(8)}/${+primerDia.slice(5, 7)}` : 'desde que empezó', clase(totalCon)),
     t('Plata en la cuenta', plano(saldo), 'dólares digitales (USDC)'),
     t('Posición ahora', tam ? `${tam > 0 ? 'Compró' : 'Vendió'} ${plano(valorPos)}` : 'Ninguna', tam ? `resultado abierto ${usd(abierta)}` : 'todo cerrado'),
-    t('Última operación', ultima ? haceCuanto(ultima) : '—', nuestras.length === 1 ? '1 orden puesta ahora' : `${nuestras.length} órdenes puestas ahora`, '', true),
+    t('Última operación', ultima ? haceCuanto(ultima) : '—', nuestras.length === 1 ? '1 orden puesta' : `${nuestras.length} órdenes puestas`, '', true),
   );
   const lista = el('ul', { class: 'ops' });
   if (!ult.length) lista.append(el('li', {}, el('span', { class: 'que' }, 'Sin operaciones todavía')));
@@ -472,7 +479,7 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
     lista.append(el('li', {}, el('span', { class: 'que' }, `${hora(f.time)} · ${f.side === 'B' ? 'compró' : 'vendió'} ${plano(monto)} en ${donde}`), el('span', { class: 'res ' + clase(n) }, usd(n))));
   }
   const pie = el('div', { class: 'pie' },
-    el('p', {}, `Actualizado a las ${hora(ultimoBien)}. Se actualiza solo cada 30 segundos.`),
+    el('p', {}, `Actualizado a las ${hora(ultimoBien)}. Se actualiza solo una vez por minuto.`),
     el('p', {}, `Topes: −${TOPE_DIA} USD por día y −${TOPE_TOTAL} en total. Si los toca, para solo.`),
     el('p', {}, 'El día va de 0 a 24 h de Buenos Aires. La ganancia de cada operación ya tiene la comisión descontada.'),
   );
@@ -482,7 +489,10 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
 }
 function pintarError(e) {
   const viejo = ultimoBien ? ` Lo último que leí fue a las ${hora(ultimoBien)}.` : '';
-  const sem = el('div', { class: 'semaforo nada', role: 'status' }, el('div', { class: 'grande' }, 'No puedo leer la cuenta'), el('div', { class: 'chico' }, `El celu no llega a Hyperliquid (${e.message}). Pruebo de nuevo solo.${viejo} El programa en la PC sigue igual.`));
+  const pideEsperar = /429/.test(String(e && e.message));
+  const sem = pideEsperar
+    ? el('div', { class: 'semaforo nada', role: 'status' }, el('div', { class: 'grande' }, 'La bolsa pidió esperar'), el('div', { class: 'chico' }, `Hay muchas lecturas juntas desde esta conexión. Pruebo de nuevo solo a las ${hora(esperaHasta)}.${viejo} El programa en la PC sigue igual.`))
+    : el('div', { class: 'semaforo nada', role: 'status' }, el('div', { class: 'grande' }, 'No puedo leer la cuenta'), el('div', { class: 'chico' }, `El celu no llega a Hyperliquid (${e.message}). Pruebo de nuevo solo.${viejo} El programa en la PC sigue igual.`));
   if (app.firstChild?.classList?.contains('semaforo')) app.firstChild.replaceWith(sem); else app.replaceChildren(sem, control);
 }
 function arrancar() {
@@ -491,7 +501,8 @@ function arrancar() {
   if (!cuenta) { pedirCuenta(); return; }
   app.replaceChildren(el('div', { class: 'semaforo nada' }, el('div', { class: 'grande' }, 'Leyendo la cuenta…')), control);
   fillsMem = null;
-  clearInterval(timer); actualizar(cuenta); timer = setInterval(() => actualizar(cuenta), 30000);
+  ordenesT = 0; ordenesMem = [];
+  clearInterval(timer); actualizar(cuenta); timer = setInterval(() => actualizar(cuenta), CADA_MS);
   preguntarPC();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { const c = leerCuenta(); if (c) { actualizar(c); preguntarPC(); } } });
