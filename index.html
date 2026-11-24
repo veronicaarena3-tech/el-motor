@@ -43,9 +43,18 @@ html { font-size: 106.25%; -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--fondo); color: var(--texto); font: var(--f17)/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 main { max-width: 560px; margin: 0 auto; padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
 h1 { font-size: var(--f15); font-weight: 600; color: var(--suave); margin: 4px 0 12px; letter-spacing: .02em; }
-.semaforo { border-radius: 16px; padding: 18px 18px 16px; margin-bottom: 14px; border: 2px solid transparent; }
-.semaforo .grande { font-size: var(--f28); font-weight: 700; line-height: 1.2; }
-.semaforo .chico { font-size: var(--f17); margin-top: 6px; color: var(--texto); }   /* lo que se lee de corrido va en la tinta del texto: 7 a 1 o más */
+/* LAS LUCES (24/11/2026, ella: «el mega botón "operando", que sea sólo un botón pequeño verde, idem pc y claude»): un botón
+   chico por cosa —el motor, la PC y Claude—. Verde es «en orden». Tocás uno y abre su detalle; lo rojo se abre solo.
+   La zona que responde mide 56 (regla de diseño 4): el botón es transparente y lo que se ve es la píldora de adentro. */
+.luces { display: flex; flex-wrap: wrap; gap: 0 6px; margin: -8px 0 2px; }
+button.luz { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; min-width: 56px; padding: 0; border: 0; background: none; font: inherit; color: inherit; }
+button.luz > span { display: inline-flex; align-items: center; min-height: calc(34px * var(--u)); padding: 4px 14px; border: 2px solid; border-radius: 999px; font-size: var(--f15); font-weight: 700; line-height: 1.2; white-space: nowrap; }
+button.luz[aria-expanded="true"] > span { box-shadow: 0 0 0 3px var(--borde); }
+button.luz:active { box-shadow: none; }
+button.luz:active > span { box-shadow: inset 0 0 0 4px rgba(127, 127, 127, .55); }
+.luzdet { border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; border: 2px solid; }
+.luzdet .tit { font-size: var(--f17); font-weight: 700; line-height: 1.25; }
+.luzdet p { font-size: var(--f17); margin: 4px 0 0; color: var(--texto); }   /* lo que se lee de corrido va en la tinta del texto: 7 a 1 o más */
 .ok { background: var(--verde-fondo); color: var(--verde); border-color: var(--verde); }
 .ojo { background: var(--ambar-fondo); color: var(--ambar); border-color: var(--ambar); }
 .alto { background: var(--rojo-fondo); color: var(--rojo); border-color: var(--rojo); }
@@ -73,8 +82,12 @@ form.cuenta input { width: 100%; min-height: 56px; font-size: var(--f17); paddin
    pantalla mientras su lugar está más abajo de lo que se ve (con la letra grande), y en su lugar cuando se llega a él. */
 .control { display: contents; }
 .control > :last-child { margin-bottom: 14px; }
-.pc { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; font-size: var(--f15); }
-.pc p { margin: 4px 0; } .pc .mal { color: var(--rojo); font-weight: 700; } .pc .bien { color: var(--verde); font-weight: 700; }
+/* «Frenar todo» en reposo: chico (ella, 24/11/2026: «frenar más chico»). La zona que responde sigue midiendo 56. El de 88
+   queda para el momento de decidir: «Sí, frenar todo» y «Frenar en la bolsa →». */
+button.frenito { display: flex; align-items: center; justify-content: flex-start; min-height: 56px; min-width: 56px; padding: 0; border: 0; background: none; font: inherit; }
+button.frenito > span { display: inline-flex; align-items: center; min-height: calc(38px * var(--u)); padding: 6px 16px; border-radius: 10px; background: var(--frenar); color: var(--frenar-texto); font-size: var(--f15); font-weight: 700; line-height: 1.2; }
+button.frenito:active { box-shadow: none; }
+button.frenito:active > span { box-shadow: inset 0 0 0 4px rgba(127, 127, 127, .55); }
 /* El botón principal: 88 de alto (regla de diseño 4). Hay uno solo por momento. */
 button.frenar, a.bolsa.principal { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 88px; padding: 8px 12px; font: inherit; font-size: var(--f22); font-weight: 700; line-height: 1.2; border: 0; border-radius: 16px; background: var(--frenar); color: var(--frenar-texto); text-align: center; text-decoration: none; margin-top: 10px; }
 .control > button.frenar:first-of-type { margin-top: 0; }
@@ -197,6 +210,26 @@ function leerCanal() {
   return null;
 }
 const control = el('div', { class: 'control' });
+// ---------- las luces: tres botones chicos (el motor, la PC y Claude) ----------
+// 24/11/2026, a pedido de ella: en lugar del cartel grande y de la tarjeta de la PC, un botón chico por cosa. Verde es «en
+// orden». Tocás uno y abre su detalle (lo mismo que antes se leía en el cartel); lo rojo se abre solo. El color nunca va
+// solo: cada uno lleva su palabra y su signo.
+const luces = el('div', { class: 'luces' }), luzdet = el('div', {});
+const L = { motor: null, pc: null, claude: null, abierta: null };   // cada una: { tipo, corto, titulo, texto: [], tranqui, atencion }
+const SIGNO = { ok: '✔', ojo: '!', alto: '✖', nada: '…' };
+function pintarLuces() {
+  const cuales = ['motor', 'pc', 'claude'].filter((k) => L[k]);
+  const abierta = (k) => !!L[k].atencion || L.abierta === k;
+  luces.replaceChildren(...cuales.map((k) => {
+    const b = el('button', { class: 'luz', type: 'button', 'aria-expanded': String(abierta(k)) }, el('span', { class: L[k].tipo }, SIGNO[L[k].tipo] + ' ' + L[k].corto));
+    b.addEventListener('click', () => { L.abierta = L.abierta === k ? null : k; pintarLuces(); });
+    return b;
+  }));
+  luzdet.replaceChildren(...cuales.filter(abierta).map((k) => {
+    const x = L[k], mas = x.tranqui && !hayQueFrenarEnLaBolsa() ? ['No hace falta hacer nada.'] : [];
+    return el('div', { class: 'luzdet ' + x.tipo, role: 'status' }, el('div', { class: 'tit' }, x.titulo), ...x.texto.concat(mas).map((t) => el('p', {}, t)));
+  }));
+}
 const C = { pc: 'nada', r: null, cuando: 0, paso: 'listo', res: null, enviado: 0, confirmarDesde: 0 };   // pc: nada | preguntando | contesta | callada · paso: listo | confirmar | esperando | hecho | sin-respuesta | sin-enviar
 const sena = () => Math.random().toString(36).slice(2, 10);
 async function publicar(canal, texto) {
@@ -241,26 +274,30 @@ const bolsaGrande = () => [enlaceBolsa(true), el('p', { class: 'chica como' }, C
 // El semáforo dice «No hace falta hacer nada» sólo si de verdad no hay nada para hacer: no mientras la PC no contesta
 // o no pudo frenar (ahí lo que hay que tocar es «Frenar en la bolsa»).
 const hayQueFrenarEnLaBolsa = () => C.pc === 'callada' || C.paso === 'sin-respuesta' || C.paso === 'sin-enviar' || (C.paso === 'hecho' && !!C.res && !C.res.ok);
-function avisarTranqui() { for (const e of document.querySelectorAll('.tranqui')) e.hidden = hayQueFrenarEnLaBolsa(); }
 function pintarControl() {
-  avisarTranqui();
-  const canal = leerCanal(); control.replaceChildren(); if (!canal) return;
+  const canal = leerCanal(); control.replaceChildren();
+  if (!canal) { L.pc = L.claude = null; pintarLuces(); return; }
   // Un solo botón grande por momento (regla de diseño 1). Si la PC no contesta, o no pudo frenar, lo que hay que tocar es
   // «Frenar en la bolsa»; «Frenar todo» queda debajo, más chico, con las mismas palabras (deja el pedido para cuando vuelva).
   const fallo = C.paso === 'sin-respuesta' || C.paso === 'sin-enviar' || (C.paso === 'hecho' && C.res && !C.res.ok);
   const decide = C.paso === 'confirmar' || C.paso === 'esperando';
   const bolsaManda = !decide && (fallo || C.pc === 'callada');
-  const pc = el('div', { class: 'pc', role: 'status' });
-  if (C.pc === 'preguntando' || C.pc === 'nada') pc.append(el('p', {}, 'Preguntándole a la PC…'));
-  else if (C.pc === 'callada') pc.append(el('p', { class: 'mal' }, '✖ La PC no contesta'), el('p', {}, 'Puede estar apagada o sin internet. Si hay plata en juego, frená en la bolsa:'), ...(decide ? [enLaBolsa()] : []));
-  else {
+  // Las luces de la PC y de Claude (lo de Claude lo dice la PC cuando contesta).
+  if (C.pc === 'preguntando' || C.pc === 'nada') {
+    L.pc = { tipo: 'nada', corto: 'PC', titulo: 'Preguntándole a la PC…', texto: [] };
+    L.claude = { tipo: 'nada', corto: 'Claude', titulo: 'Claude: todavía no se sabe', texto: ['Lo dice la PC cuando contesta.'] };
+  } else if (C.pc === 'callada') {
+    L.pc = { tipo: 'alto', corto: 'PC', titulo: 'La PC no contesta', texto: ['Puede estar apagada o sin internet. Si hay plata en juego, frená en la bolsa.'], atencion: true };
+    L.claude = { tipo: 'nada', corto: 'Claude', titulo: 'Claude: no se sabe', texto: ['Lo dice la PC, y la PC no contesta.'] };
+  } else {
     const r = C.r, ps = r.programas || [];
-    pc.append(el('p', { class: 'bien' }, '✔ La PC contesta (' + hora(C.cuando) + ')'));
-    pc.append(el('p', {}, ps.length ? 'Operan: ' + ps.map((p) => String(p.m).split(':').pop() + (p.usd ? ' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta las ' + p.vence : '') : ' (sin tamaño: no pone órdenes)') + (p.parar ? ' — frenado' : '')).join('; ') + '.' : 'Ningún programa del motor está operando.'));
-    if (r.claude && r.claude.ok === false) pc.append(el('p', { class: 'mal' }, '✖ Claude sin sesión desde las ' + r.claude.desde), el('p', {}, 'No recibe pedidos hasta que alguien escriba /login en la PC. El botón de acá abajo anda igual.'));
-    else pc.append(el('p', {}, 'Claude: con sesión.'));
+    L.pc = { tipo: 'ok', corto: 'PC', titulo: 'La PC contesta (' + hora(C.cuando) + ')', texto: [ps.length ? 'Operan: ' + ps.map((p) => String(p.m).split(':').pop() + (p.usd ? ' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta las ' + p.vence : '') : ' (sin tamaño: no pone órdenes)') + (p.parar ? ' — frenado' : '')).join('; ') + '.' : 'Ningún programa del motor está operando.'] };
+    L.claude = r.claude && r.claude.ok === false
+      ? { tipo: 'alto', corto: 'Claude', titulo: 'Claude sin sesión desde las ' + r.claude.desde, texto: ['No recibe pedidos hasta que alguien escriba /login en la PC. «Frenar todo» anda igual.'], atencion: true }
+      : { tipo: 'ok', corto: 'Claude', titulo: 'Claude: con sesión', texto: [] };
   }
-  control.append(pc);
+  pintarLuces();
+  if (C.pc === 'callada' && decide) control.append(enLaBolsa());
   if (bolsaManda && !fallo) control.append(...bolsaGrande());
   if (C.paso === 'confirmar') {
     const si = el('button', { class: 'frenar', type: 'button' }, 'Sí, frenar todo'), no = el('button', { class: 'otro', type: 'button' }, 'No, dejar como está');
@@ -272,7 +309,8 @@ function pintarControl() {
   if (C.paso === 'hecho') control.append(el('div', { class: 'aviso ' + (C.res.ok ? 'ok' : 'alto'), role: 'status' }, el('p', {}, (C.res.ok ? '✔ ' : '✖ ') + C.res.texto)), ...(C.res.ok ? [] : bolsaGrande()));
   if (C.paso === 'sin-respuesta') control.append(el('div', { class: 'aviso alto', role: 'status' }, el('p', {}, '✖ La PC no contestó. El pedido quedó guardado: si la PC vuelve en las próximas 12 horas, frena sola. Mientras tanto:')), ...bolsaGrande());
   if (C.paso === 'sin-enviar') control.append(el('div', { class: 'aviso alto', role: 'status' }, el('p', {}, '✖ No pude mandar el pedido (el celu no tiene señal o el canal no anda).')), ...bolsaGrande());
-  const b = el('button', { class: bolsaManda ? 'otro' : 'frenar', type: 'button' }, 'Frenar todo');
+  // En reposo, «Frenar todo» es chico. Si manda «Frenar en la bolsa», queda debajo con el borde de los botones secundarios.
+  const b = bolsaManda ? el('button', { class: 'otro', type: 'button' }, 'Frenar todo') : el('button', { class: 'frenito', type: 'button' }, el('span', {}, 'Frenar todo'));
   b.addEventListener('click', () => { C.paso = 'confirmar'; C.confirmarDesde = Date.now(); pintarControl(); });
   control.append(b);
 }
@@ -583,18 +621,18 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   const diaCon = dia + abierta, totalCon = total + abierta;
 
   // El semáforo dice siempre si hay algo para hacer (regla de diseño 1: si lo que toca es esperar, la pantalla lo dice).
-  let tipo, grande, chico, tranqui = false;
-  if (totalCon <= -TOPE_TOTAL) { tipo = 'alto'; grande = 'Parado: tocó el tope total'; chico = `Perdió ${plano(-totalCon)} en total. El programa paró solo y no vuelve a operar hasta que lo decidas. No hace falta hacer nada.`; }
-  else if (diaCon <= -TOPE_DIA) { tipo = 'alto'; grande = 'Parado por hoy'; chico = `Hoy perdió ${plano(-diaCon)}. El programa frena solo hasta mañana. No hace falta hacer nada.`; }
-  else if (valorPos > POSICION_MAX || nuestras.length > ORDENES_MAX) { tipo = 'alto'; grande = 'Algo raro: el guardián actúa'; chico = 'Hay más posición u órdenes de lo permitido. El guardián las saca solo y avisa a Claude.'; }
-  else if (diaCon <= -0.7 * TOPE_DIA) { tipo = 'ojo'; grande = 'Atención: cerca del tope de hoy'; chico = `Hoy va ${usd(diaCon)}. Si llega a −${TOPE_DIA} USD, para solo.`; }
-  else if (!nTotal && !nuestras.length) { tipo = 'nada'; grande = 'Todavía sin operar'; chico = 'La cuenta no tiene operaciones ni órdenes. Cuando el programa arranque, aparecen acá.'; }
-  else if (pausa) { tipo = 'ok'; grande = 'En pausa, sin plata en juego'; chico = `A las ${hora(ultFill.time)} cerró todo. Si fue el freno, vuelve a operar solo a las ${hora(ultFill.time + 30 * 60000)}. Hoy va ${usd(diaCon)}.`; tranqui = true; }
-  else if (!operando && !tam && Date.now() - ultima > 30 * 60000) { tipo = 'ojo'; grande = `Quieto ${haceCuanto(ultima)}`; chico = 'Sin órdenes ni posición: no hay plata en juego. Puede estar esperando a que su prueba en papel vuelva a ganar, o detenido. Si el programa se cae, el guardián avisa.'; }
-  else if (operando) { tipo = 'ok'; grande = 'Operando'; chico = `Hay órdenes puestas. Hoy va ${usd(diaCon)}.`; tranqui = true; }
-  else { tipo = 'ok'; grande = 'En orden'; chico = `Hoy va ${usd(diaCon)}.`; tranqui = true; }
+  let tipo, corto, grande, chico, tranqui = false;
+  if (totalCon <= -TOPE_TOTAL) { tipo = 'alto'; corto = 'Parado'; grande = 'Parado: tocó el tope total'; chico = `Perdió ${plano(-totalCon)} en total. El programa paró solo y no vuelve a operar hasta que lo decidas. No hace falta hacer nada.`; }
+  else if (diaCon <= -TOPE_DIA) { tipo = 'alto'; corto = 'Parado por hoy'; grande = 'Parado por hoy'; chico = `Hoy perdió ${plano(-diaCon)}. El programa frena solo hasta mañana. No hace falta hacer nada.`; }
+  else if (valorPos > POSICION_MAX || nuestras.length > ORDENES_MAX) { tipo = 'alto'; corto = 'Algo raro'; grande = 'Algo raro: el guardián actúa'; chico = 'Hay más posición u órdenes de lo permitido. El guardián las saca solo y avisa a Claude.'; }
+  else if (diaCon <= -0.7 * TOPE_DIA) { tipo = 'ojo'; corto = 'Cerca del tope'; grande = 'Atención: cerca del tope de hoy'; chico = `Hoy va ${usd(diaCon)}. Si llega a −${TOPE_DIA} USD, para solo.`; }
+  else if (!nTotal && !nuestras.length) { tipo = 'nada'; corto = 'Sin operar'; grande = 'Todavía sin operar'; chico = 'La cuenta no tiene operaciones ni órdenes. Cuando el programa arranque, aparecen acá.'; }
+  else if (pausa) { tipo = 'ok'; corto = 'En pausa'; grande = 'En pausa, sin plata en juego'; chico = `A las ${hora(ultFill.time)} cerró todo. Si fue el freno, vuelve a operar solo a las ${hora(ultFill.time + 30 * 60000)}. Hoy va ${usd(diaCon)}.`; tranqui = true; }
+  else if (!operando && !tam && Date.now() - ultima > 30 * 60000) { tipo = 'ojo'; corto = 'Quieto'; grande = `Quieto ${haceCuanto(ultima)}`; chico = 'Sin órdenes ni posición: no hay plata en juego. Puede estar esperando a que su prueba en papel vuelva a ganar, o detenido. Si el programa se cae, el guardián avisa.'; }
+  else if (operando) { tipo = 'ok'; corto = 'Operando'; grande = 'Operando'; chico = `Hay órdenes puestas. Hoy va ${usd(diaCon)}.`; tranqui = true; }
+  else { tipo = 'ok'; corto = 'En orden'; grande = 'En orden'; chico = `Hoy va ${usd(diaCon)}.`; tranqui = true; }
 
-  const sem = el('div', { class: 'semaforo ' + tipo, role: 'status' }, el('div', { class: 'grande' }, grande), el('div', { class: 'chico' }, chico, ...(tranqui ? [el('span', { class: 'tranqui' }, ' No hace falta hacer nada.')] : [])));
+  L.motor = { tipo, corto, titulo: grande, texto: [chico], tranqui, atencion: tipo === 'alto' || tipo === 'nada' };
   const t = (rot, val, nota, cls = '', ancha = false, extra = null) => el('div', { class: 'tarjeta' + (ancha ? ' ancha' : '') }, el('div', { class: 'rotulo' }, rot), el('div', { class: 'valor ' + cls }, val), ...(nota ? [el('div', { class: 'nota' }, nota)] : []), ...(extra ? [el('div', { class: 'nota fuerte' }, extra)] : []));
   const primerDia = [...dias.keys()][0];
   const tarjetas = el('div', { class: 'tarjetas' },
@@ -617,22 +655,24 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   );
   pintarSonido();
   grafAhora = { dias, hoy: hoyDia, abierta, cuenta };
-  app.replaceChildren(sem, control, tarjetas, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
-  avisarTranqui();
+  app.replaceChildren(luces, luzdet, control, tarjetas, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
+  pintarLuces();
 }
 function pintarError(e) {
   const viejo = ultimoBien ? ` Lo último que leí fue a las ${hora(ultimoBien)}.` : '';
   const pideEsperar = /429/.test(String(e && e.message));
-  const sem = pideEsperar
-    ? el('div', { class: 'semaforo nada', role: 'status' }, el('div', { class: 'grande' }, 'La bolsa pidió esperar'), el('div', { class: 'chico' }, `Hay muchas lecturas juntas desde esta conexión. Pruebo de nuevo solo a las ${hora(esperaHasta)}.${viejo} El programa en la PC sigue igual.`))
-    : el('div', { class: 'semaforo nada', role: 'status' }, el('div', { class: 'grande' }, 'No puedo leer la cuenta'), el('div', { class: 'chico' }, `El celu no llega a Hyperliquid (${e.message}). Pruebo de nuevo solo.${viejo} El programa en la PC sigue igual.`));
-  if (app.firstChild?.classList?.contains('semaforo')) app.firstChild.replaceWith(sem); else app.replaceChildren(sem, control);
+  L.motor = pideEsperar
+    ? { tipo: 'nada', corto: 'En espera', titulo: 'La bolsa pidió esperar', texto: [`Hay muchas lecturas juntas desde esta conexión. Pruebo de nuevo solo a las ${hora(esperaHasta)}.${viejo} El programa en la PC sigue igual.`], atencion: true }
+    : { tipo: 'nada', corto: 'Sin leer', titulo: 'No puedo leer la cuenta', texto: [`El celu no llega a Hyperliquid (${e.message}). Pruebo de nuevo solo.${viejo} El programa en la PC sigue igual.`], atencion: true };
+  if (app.firstChild !== luces) app.replaceChildren(luces, luzdet, control);   // si ya había tarjetas, quedan: sólo cambia la luz
+  pintarLuces();
 }
 function arrancar() {
   U = medirLetra();
   const cuenta = leerCuenta();
   if (!cuenta) { pedirCuenta(); return; }
-  app.replaceChildren(el('div', { class: 'semaforo nada' }, el('div', { class: 'grande' }, 'Leyendo la cuenta…')), control);
+  L.motor = { tipo: 'nada', corto: 'Leyendo', titulo: 'Leyendo la cuenta…', texto: [] }; L.abierta = null;
+  app.replaceChildren(luces, luzdet, control); pintarLuces();
   fillsMem = null;
   ordenesT = 0; ordenesMem = [];
   clearInterval(timer); actualizar(cuenta); timer = setInterval(() => actualizar(cuenta), CADA_MS);
