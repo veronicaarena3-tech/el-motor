@@ -105,6 +105,26 @@ form.cuenta button { margin-top: 12px; width: 100%; min-height: 88px; font-size:
 .num { font-size: var(--f15); font-weight: 600; color: var(--texto); line-height: 1.35; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .col .dia { font-size: var(--f15); color: var(--suave); line-height: 1.2; text-align: center; margin-top: 6px; }
 .col.hoy .dia { color: var(--texto); font-weight: 700; }
+/* CADA DÍA SE TOCA (24/11/2026): la columna entera es el botón (56 o más de ancho: por eso entran menos días). El elegido
+   lleva marco, no sólo color. Abajo se abre su detalle: por mercado, cómo cerró, comisiones y la ganancia hora por hora. */
+button.col { -webkit-appearance: none; appearance: none; width: 100%; margin: 0; padding: 2px 0 4px; background: none; border: 2px solid transparent; border-radius: 10px; font: inherit; color: inherit; text-align: center; cursor: pointer; }
+button.col span { display: block; }
+button.col[aria-pressed="true"] { border-color: var(--texto); background: var(--gris-fondo); }
+.graf .toca { font-size: var(--f15); color: var(--suave); margin: 10px 6px 0; }
+.det { margin: 12px 4px 0; padding-top: 10px; border-top: 1px solid var(--borde); }
+.det h3 { font-size: var(--f17); margin: 0 2px 6px; }
+.det p { margin: 6px 2px 0; }
+.det ul.ops { border: 0; border-radius: 0; background: none; }
+.det ul.ops li { padding: 9px 2px; }
+.det ul.ops .que { color: var(--texto); }
+.det .rot { font-size: var(--f15); color: var(--suave); margin: 12px 2px 0; }
+.horas { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin: 6px 2px 0; }
+.hcol { display: flex; flex-direction: column; min-width: 0; }
+.hcol .mas, .hcol .menos { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.hcol .mas { justify-content: flex-end; }
+.hcol .menos { justify-content: flex-start; border-top: 1px solid var(--eje); }
+.hcol .barra { width: 70%; }
+.heje { display: grid; grid-template-columns: repeat(4, 1fr); margin: 2px 2px 0; font-size: var(--f15); color: var(--suave); }
 .sonido { margin-bottom: 14px; }
 .sonido p { margin: 0 2px; color: var(--suave); }
 </style>
@@ -334,18 +354,23 @@ function cargarLibro(cuenta) {
   try { const g = JSON.parse(localStorage.getItem(claveLibro(cuenta)) || 'null'); if (g && g.hasta > 0 && g.dias && typeof g.dias === 'object') return { hasta: g.hasta, dias: g.dias, ult: Array.isArray(g.ult) ? g.ult : [] }; } catch { /* empieza de cero */ }
   return { hasta: 0, dias: {}, ult: [] };
 }
-async function traerDesde(cuenta, desde) {
+// Las operaciones desde una hora (y, si se pide, hasta otra), por páginas. «entero» dice si llegó a leer todas.
+async function traerEntre(cuenta, desde, hasta = 0) {
   const out = [], vistas = new Set(); let cursor = desde, entero = false;
   for (let pag = 0; pag < 30; pag++) {
-    const f = await pedir({ type: 'userFillsByTime', user: cuenta, startTime: cursor });
+    const f = await pedir(hasta ? { type: 'userFillsByTime', user: cuenta, startTime: cursor, endTime: hasta } : { type: 'userFillsByTime', user: cuenta, startTime: cursor });
     if (!Array.isArray(f)) break;
     let max = cursor;
     for (const x of f) { if (x.time > max) max = x.time; if (!vistas.has(x.tid)) { vistas.add(x.tid); out.push(x); } }
     if (f.length < 2000 || max === cursor) { entero = true; break; }
     cursor = max;
   }
-  if (!entero) completo = false;   // quedaron páginas sin leer: lo sumado no es todo, y no se guarda como día terminado
-  return out;
+  return { fills: out, entero };
+}
+async function traerDesde(cuenta, desde) {
+  const r = await traerEntre(cuenta, desde);
+  if (!r.entero) completo = false;   // quedaron páginas sin leer: lo sumado no es todo, y no se guarda como día terminado
+  return r.fills;
 }
 async function leerFills(cuenta) {
   if (!fillsMem) { base = cargarLibro(cuenta); completo = true; fillsMem = await traerDesde(cuenta, base.hasta); return fillsMem; }
@@ -395,7 +420,109 @@ async function actualizar(cuenta) {
 const corto = (x) => { const a = Math.round(Math.abs(x) * 100) / 100; if (a < 0.005) return '0'; return (x < 0 ? '−' : '+') + a.toLocaleString('es-AR', a < 10 ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : a < 100 ? { minimumFractionDigits: 1, maximumFractionDigits: 1 } : { maximumFractionDigits: 0 }); };
 const diaLargo = (d) => new Date(inicioDe(d) + 12 * 3600e3).toLocaleDateString('es-AR', { ...zona, weekday: 'long' }) + ' ' + +d.slice(8) + '/' + +d.slice(5, 7);
 const diaCorto = (d) => new Date(inicioDe(d) + 12 * 3600e3).toLocaleDateString('es-AR', { ...zona, weekday: 'short' }).replace('.', '');
-function grafico(dias, hoy, abiertaHoy) {
+// ---------- el detalle de un día: se toca su columna ----------
+// Hoy sale de lo recién leído. Un día terminado se lee de la bolsa una sola vez (sus operaciones, por páginas) y su
+// resumen queda guardado en el teléfono («detalle1:<cuenta>»): un día cerrado no cambia, y así no se gastan lecturas.
+let diaElegido = null, grafAhora = null;   // grafAhora: con qué se dibujó el gráfico la última vez (para redibujarlo al tocar)
+const detMem = new Map();                  // día → resumen · { leyendo: true } · { error: '…' }
+const claveDet = (cuenta) => 'detalle1:' + cuenta;
+const mercadoDe = (coin) => (String(coin).startsWith('#') ? 'Outcome' : String(coin).split(':').pop());
+function resumir(fills) {
+  const r = { n: 0, g: 0, com: 0, vol: 0, dej: 0, tom: 0, nTom: 0, mer: {}, horas: Array(24).fill(0) };
+  for (const f of fills) {
+    const neto = netoDe(f), m = mercadoDe(f.coin);
+    r.n++; r.g += neto; r.com += +f.fee; r.vol += +f.px * +f.sz;
+    if (f.crossed) { r.tom += neto; r.nTom++; } else r.dej += neto;
+    const x = (r.mer[m] ??= [0, 0]); x[0] += neto; x[1]++;
+    r.horas[new Date(f.time - 3 * 3600e3).getUTCHours()] += neto;
+  }
+  return r;
+}
+function detalleGuardado(cuenta, d) {
+  try { const g = JSON.parse(localStorage.getItem(claveDet(cuenta)) || 'null'); const x = g && g[d]; if (x && x.n >= 0 && Array.isArray(x.horas) && x.horas.length === 24 && x.mer) return x; } catch { /* se lee de nuevo */ }
+  return null;
+}
+function guardarDetalle(cuenta, d, det) {
+  const r4 = (x) => Math.round(x * 1e4) / 1e4;
+  try {
+    const g = JSON.parse(localStorage.getItem(claveDet(cuenta)) || 'null') || {};
+    g[d] = { n: det.n, g: r4(det.g), com: r4(det.com), vol: Math.round(det.vol), dej: r4(det.dej), tom: r4(det.tom), nTom: det.nTom, mer: Object.fromEntries(Object.entries(det.mer).map(([m, v]) => [m, [r4(v[0]), v[1]]])), horas: det.horas.map(r4) };
+    localStorage.setItem(claveDet(cuenta), JSON.stringify(g));
+  } catch { /* sin lugar: la próxima vez se lee de nuevo */ }
+}
+function detalleDe(cuenta, d, hoy) {
+  const delDia = () => resumir((fillsMem || []).filter((f) => diaDe(f.time) === d));
+  if (d === hoy) return delDia();
+  if (detMem.has(d)) return detMem.get(d);
+  const det = (base && completo && base.hasta <= inicioDe(d)) ? delDia() : detalleGuardado(cuenta, d);   // ya está en lo leído al abrir, o guardado
+  if (det) detMem.set(d, det);
+  return det;
+}
+async function leerDetalle(cuenta, d) {
+  const pideEsperar = () => ({ error: `La bolsa pidió esperar. Tocá el día de nuevo después de las ${hora(esperaHasta)}.` });
+  if (Date.now() < esperaHasta) { detMem.set(d, pideEsperar()); repintarGrafico(); return; }
+  detMem.set(d, { leyendo: true }); repintarGrafico();
+  try {
+    const r = await traerEntre(cuenta, inicioDe(d), inicioDe(d) + 86400e3 - 1);
+    const det = resumir(r.fills.filter((f) => diaDe(f.time) === d));
+    if (r.entero) guardarDetalle(cuenta, d, det); else det.faltan = true;
+    detMem.set(d, det);
+  } catch (e) {
+    if (/429/.test(String(e && e.message))) { esperaHasta = Date.now() + ESPERA_429_MS; detMem.set(d, pideEsperar()); }
+    else detMem.set(d, { error: 'No pude leer ese día: el celu no llega a la bolsa. Tocá el día de nuevo para probar otra vez.' });
+  }
+  repintarGrafico();
+}
+function repintarGrafico(mostrar = false) {
+  const viejo = document.querySelector('.graf'); if (!viejo || !grafAhora) return;
+  viejo.replaceWith(grafico(grafAhora.dias, grafAhora.hoy, grafAhora.abierta, grafAhora.cuenta));
+  if (mostrar) { document.querySelector('button.col[aria-pressed="true"]')?.focus({ preventScroll: true }); document.querySelector('.det')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+}
+function elegirDia(cuenta, d, hoy) {
+  const m = detMem.get(d);
+  if (diaElegido === d && !(m && m.error)) { diaElegido = null; repintarGrafico(); return; }   // tocar el mismo día lo cierra (si falló, prueba de nuevo)
+  diaElegido = d; if (m && m.error) detMem.delete(d);
+  if (detalleDe(cuenta, d, hoy)) repintarGrafico(true); else { leerDetalle(cuenta, d); repintarGrafico(true); }
+}
+// La ganancia hora por hora del día elegido: 24 columnas finas, arriba de la raya lo ganado y abajo lo perdido.
+function porHora(horas) {
+  const arriba = Math.max(0, ...horas), abajo = Math.max(0, ...horas.map((v) => -v));
+  if (arriba + abajo < 0.005) return [];
+  const k = 56 / (arriba + abajo), hMas = Math.max(1, Math.round(arriba * k)), hMenos = Math.round(abajo * k);
+  const fila = el('div', { class: 'horas', role: 'img', 'aria-label': 'Hora por hora. ' + horas.map((v, h) => (Math.abs(v) >= 0.005 ? `${h} h: ${usd(v)}` : null)).filter(Boolean).join('. ') + '.' });
+  for (const v of horas) {
+    const mas = el('div', { class: 'mas', style: `height:${hMas}px` }), menos = el('div', { class: 'menos', style: `height:${hMenos}px` });
+    const alto = Math.abs(v) < 0.005 ? 0 : Math.max(2, Math.round(Math.abs(v) * k));
+    if (alto) (v > 0 ? mas : menos).append(el('div', { class: 'barra', style: `height:${alto}px` }));
+    fila.append(el('div', { class: 'hcol' }, mas, menos));
+  }
+  const mejor = horas.indexOf(Math.max(...horas)), peor = horas.indexOf(Math.min(...horas)), lineas = [];
+  if (horas[mejor] >= 0.005) lineas.push(el('p', { class: 'chica' }, `Mejor hora: de ${mejor} a ${mejor + 1}, `, el('b', { class: 'gana' }, usd(horas[mejor]))));
+  if (horas[peor] <= -0.005) lineas.push(el('p', { class: 'chica' }, `Peor hora: de ${peor} a ${peor + 1}, `, el('b', { class: 'pierde' }, usd(horas[peor]))));
+  return [el('p', { class: 'rot' }, 'Hora por hora'), fila, el('div', { class: 'heje', 'aria-hidden': 'true' }, ...[0, 6, 12, 18].map((h) => el('span', {}, h + ' h'))), ...lineas];
+}
+function panelDetalle(cuenta, x, hoy, abiertaHoy) {
+  const d = x.d, det = detalleDe(cuenta, d, hoy), nombre = diaLargo(d);
+  const caja = el('div', { class: 'det' }, el('h3', {}, `${d === hoy ? 'Hoy, ' + nombre : nombre[0].toUpperCase() + nombre.slice(1)}: ${usd(x.g)}`));
+  const cerrar = el('button', { class: 'otro', type: 'button' }, 'Cerrar el detalle');
+  cerrar.addEventListener('click', () => { diaElegido = null; repintarGrafico(); });
+  if (!det || det.leyendo) { caja.append(el('p', { class: 'chica', role: 'status' }, 'Leyendo las operaciones de ese día…'), cerrar); return caja; }
+  if (det.error) { caja.append(el('p', { class: 'chica', role: 'status' }, det.error), cerrar); return caja; }
+  if (!det.n) { caja.append(el('p', { class: 'chica' }, 'Ese día no hubo operaciones.'), cerrar); return caja; }
+  const fila = (que, cuanto, cls = '') => el('li', {}, el('span', { class: 'que' }, que), el('span', { class: 'res ' + cls }, cuanto));
+  const veces = (n, uno, muchos) => (n === 1 ? '1 ' + uno : `${n.toLocaleString('es-AR')} ${muchos}`);
+  const lista = el('ul', { class: 'ops' });
+  for (const [m, v] of Object.entries(det.mer).sort((a, b) => Math.abs(b[1][0]) - Math.abs(a[1][0]))) lista.append(fila(`${m} · ${veces(v[1], 'operación', 'operaciones')}`, usd(v[0]), clase(v[0])));
+  if (d === hoy && Math.abs(abiertaHoy) >= 0.005) lista.append(fila('Lo que está abierto ahora', usd(abiertaHoy), clase(abiertaHoy)));
+  const como = el('ul', { class: 'ops' }, fila('Con órdenes que esperan', usd(det.dej), clase(det.dej)));
+  if (det.nTom) como.append(fila(`Cerrando al precio del momento (frenos y salidas) · ${veces(det.nTom, 'vez', 'veces')}`, usd(det.tom), clase(det.tom)));
+  como.append(fila('Comisiones (ya descontadas)', plano(det.com)), fila('Operó en total', Math.round(det.vol).toLocaleString('es-AR') + ' USD'));
+  caja.append(el('p', { class: 'rot' }, 'Por mercado'), lista, el('p', { class: 'rot' }, 'Cómo salió'), como, ...porHora(det.horas));
+  if (det.faltan) caja.append(el('p', { class: 'chica' }, 'Faltan operaciones de ese día: la bolsa no las dio todas.'));
+  caja.append(cerrar);
+  return caja;
+}
+function grafico(dias, hoy, abiertaHoy, cuenta) {
   const caja = el('div', { class: 'graf' });
   const primero = [...dias.keys()][0];
   if (!primero) { caja.append(el('p', { class: 'sub' }, 'Todavía no hay días para mostrar.')); return caja; }
@@ -403,23 +530,28 @@ function grafico(dias, hoy, abiertaHoy) {
   const todos = []; for (let t = inicioDe(primero); t <= inicioDe(hoy); t += 86400e3) { const d = diaDe(t + 12 * 3600e3), v = dias.get(d); todos.push({ d, g: (v ? v.g : 0) + (d === hoy ? abiertaHoy : 0), n: v ? v.n : 0 }); }
   let anchoNum = 46 * U; try { const c = document.createElement('canvas').getContext('2d'); c.font = `600 ${15 * U}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`; anchoNum = c.measureText('−10,07').width; } catch { /* queda la cuenta a ojo */ }
   const ancho = Math.max(120, Math.min(560, app.clientWidth || 328) - 18);
-  const cuantos = Math.max(2, Math.min(7, Math.floor(ancho / (anchoNum + 6))));
+  const cuantos = Math.max(2, Math.min(7, Math.floor(ancho / Math.max(56, anchoNum + 10))));   // cada columna se toca: 56 o más de ancho
   const ver = todos.slice(-cuantos);
+  if (diaElegido && !ver.some((x) => x.d === diaElegido)) diaElegido = null;
   const arriba = Math.max(0, ...ver.map((x) => x.g)), abajo = Math.max(0, ...ver.map((x) => -x.g));
   const ALTO = 132, porUsd = arriba + abajo > 0 ? ALTO / (arriba + abajo) : 0, altoNum = Math.ceil(15 * U * 1.35);
   const altoMas = Math.round(arriba * porUsd) + altoNum, altoMenos = abajo > 0 ? Math.round(abajo * porUsd) + altoNum : 0;
   const cols = el('div', { class: 'cols' });
   for (const x of ver) {
-    const mas = el('div', { class: 'mas', style: `height:${altoMas}px` }), menos = el('div', { class: 'menos', style: `height:${altoMenos}px` });
+    const mas = el('span', { class: 'mas', style: `height:${altoMas}px` }), menos = el('span', { class: 'menos', style: `height:${altoMenos}px` });
     const alto = Math.abs(x.g) < 0.005 ? 0 : Math.max(2, Math.round(Math.abs(x.g) * porUsd));
-    if (x.g >= -0.005) { mas.append(el('div', { class: 'num' }, corto(x.g))); if (alto) mas.append(el('div', { class: 'barra', style: `height:${alto}px` })); }
-    else menos.append(el('div', { class: 'barra', style: `height:${alto}px` }), el('div', { class: 'num' }, corto(x.g)));
-    const esHoy = x.d === hoy;
-    cols.append(el('div', { class: 'col' + (esHoy ? ' hoy' : ''), title: `${diaLargo(x.d)}: ${usd(x.g)} en ${x.n} ${x.n === 1 ? 'operación' : 'operaciones'}` }, mas, menos, el('div', { class: 'dia' }, esHoy ? 'hoy' : diaCorto(x.d), el('br'), String(+x.d.slice(8)))));
+    if (x.g >= -0.005) { mas.append(el('span', { class: 'num' }, corto(x.g))); if (alto) mas.append(el('span', { class: 'barra', style: `height:${alto}px` })); }
+    else menos.append(el('span', { class: 'barra', style: `height:${alto}px` }), el('span', { class: 'num' }, corto(x.g)));
+    const esHoy = x.d === hoy, elegido = x.d === diaElegido;
+    const b = el('button', { type: 'button', class: 'col' + (esHoy ? ' hoy' : ''), 'data-dia': x.d, 'aria-pressed': elegido ? 'true' : 'false', 'aria-label': `${diaLargo(x.d)}: ${usd(x.g)} en ${x.n} ${x.n === 1 ? 'operación' : 'operaciones'}. ${elegido ? 'Cerrar' : 'Ver'} el detalle.` }, mas, menos, el('span', { class: 'dia' }, esHoy ? 'hoy' : diaCorto(x.d), el('br'), String(+x.d.slice(8))));
+    b.addEventListener('click', () => elegirDia(cuenta, x.d, hoy));
+    cols.append(b);
   }
-  cols.setAttribute('role', 'img');
+  cols.setAttribute('role', 'group');
   cols.setAttribute('aria-label', 'Ganancia por día, en dólares. ' + ver.map((x) => `${diaLargo(x.d)}: ${usd(x.g)}`).join('. ') + '.');
   caja.append(el('p', { class: 'sub' }, 'En USD, ya sin la comisión. Arriba de la raya, lo ganado; abajo, lo perdido.'), cols);
+  const elegida = ver.find((x) => x.d === diaElegido);
+  caja.append(elegida ? panelDetalle(cuenta, elegida, hoy, abiertaHoy) : el('p', { class: 'toca' }, '👆 Tocá un día para ver su detalle.'));
   return caja;
 }
 
@@ -484,7 +616,8 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
     el('p', {}, 'El día va de 0 a 24 h de Buenos Aires. La ganancia de cada operación ya tiene la comisión descontada.'),
   );
   pintarSonido();
-  app.replaceChildren(sem, control, tarjetas, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
+  grafAhora = { dias, hoy: hoyDia, abierta, cuenta };
+  app.replaceChildren(sem, control, tarjetas, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
   avisarTranqui();
 }
 function pintarError(e) {
