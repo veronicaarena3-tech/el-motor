@@ -13,18 +13,21 @@
   --fondo: #f6f5f2; --tarjeta: #ffffff; --texto: #1b1b1b; --suave: #4a4a4a; --borde: #d9d6cf;
   --verde: #0d6b3a; --verde-fondo: #e3f3e9; --ambar: #7a4b00; --ambar-fondo: #fff1d6;
   --rojo: #a3191b; --rojo-fondo: #fde4e4; --gris-fondo: #ebebeb;
+  --frenar: #2f4050; --frenar-texto: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --fondo: #121212; --tarjeta: #1e1e1e; --texto: #f2f2f2; --suave: #c4c4c4; --borde: #3a3a3a;
     --verde: #7fdca6; --verde-fondo: #12301f; --ambar: #ffcf70; --ambar-fondo: #3a2a07;
     --rojo: #ff9a9a; --rojo-fondo: #3d1414; --gris-fondo: #2a2a2a;
+    --frenar: #c9d6e2; --frenar-texto: #101418;
   }
 }
 :root[data-theme="dark"] {
   --fondo: #121212; --tarjeta: #1e1e1e; --texto: #f2f2f2; --suave: #c4c4c4; --borde: #3a3a3a;
   --verde: #7fdca6; --verde-fondo: #12301f; --ambar: #ffcf70; --ambar-fondo: #3a2a07;
   --rojo: #ff9a9a; --rojo-fondo: #3d1414; --gris-fondo: #2a2a2a;
+  --frenar: #c9d6e2; --frenar-texto: #101418;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -59,7 +62,7 @@ form.cuenta input { width: 100%; font-size: 17px; padding: 14px; border-radius: 
 .control { margin-bottom: 14px; }
 .pc { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; font-size: 15px; }
 .pc p { margin: 4px 0; } .pc .mal { color: var(--rojo); font-weight: 700; } .pc .bien { color: var(--verde); font-weight: 700; }
-button.frenar { display: block; width: 100%; min-height: 88px; font: inherit; font-size: 22px; font-weight: 700; border: 0; border-radius: 16px; background: #a3191b; color: #fff; }
+button.frenar { display: block; width: 100%; min-height: 88px; font: inherit; font-size: 22px; font-weight: 700; border: 0; border-radius: 16px; background: var(--frenar); color: var(--frenar-texto); }
 button.frenar:disabled { opacity: .55; }
 button.otro, a.bolsa { display: block; width: 100%; min-height: 56px; font: inherit; font-size: 17px; font-weight: 700; border: 2px solid var(--borde); border-radius: 12px; background: var(--tarjeta); color: var(--texto); margin-top: 10px; text-align: center; text-decoration: none; }
 a.bolsa { line-height: 52px; border-color: var(--rojo); color: var(--rojo); }
