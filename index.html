@@ -66,6 +66,9 @@ button.luz:active > span { box-shadow: inset 0 0 0 4px rgba(127, 127, 127, .55);
 .tarjeta .nota { font-size: var(--f15); color: var(--suave); margin-top: 2px; }
 .tarjeta .nota.fuerte { color: var(--texto); font-weight: 600; }
 .ancha { grid-column: 1 / -1; }
+.ahora p { margin: 0; font-size: var(--f17); line-height: 1.4; }
+.ahora p + p { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); }
+.ahora b { font-weight: 700; }
 .gana { color: var(--verde); } .pierde { color: var(--rojo); }
 h2 { font-size: var(--f17); margin: 18px 0 8px; }
 ul.ops { list-style: none; margin: 0; padding: 0; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; }
@@ -291,7 +294,7 @@ function pintarControl() {
     L.claude = { tipo: 'nada', corto: 'Claude', titulo: 'Claude: no se sabe', texto: ['Lo dice la PC, y la PC no contesta.'] };
   } else {
     const r = C.r, ps = r.programas || [];
-    L.pc = { tipo: 'ok', corto: 'PC', titulo: 'La PC contesta (' + hora(C.cuando) + ')', texto: [ps.length ? 'Operan: ' + ps.map((p) => String(p.m).split(':').pop() + (p.usd ? ' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta las ' + p.vence : '') : ' (sin tamaño: no pone órdenes)') + (p.parar ? ' — frenado' : '')).join('; ') + '.' : 'Ningún programa del motor está operando.'] };
+    L.pc = { tipo: 'ok', corto: 'PC', titulo: 'La PC contesta (' + hora(C.cuando) + ')', texto: [ps.length ? 'Operan: ' + ps.map((p) => String(p.m).split(':').pop() + (p.usd ? ' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '') : ' en pausa' + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '')) + (p.parar ? ' — frenado' : '')).join('; ') + '.' : 'Ningún programa del motor está operando.'] };
     L.claude = r.claude && r.claude.ok === false
       ? { tipo: 'alto', corto: 'Claude', titulo: 'Claude sin sesión desde las ' + r.claude.desde, texto: ['No recibe pedidos hasta que alguien escriba /login en la PC. «Frenar todo» anda igual.'], atencion: true }
       : { tipo: 'ok', corto: 'Claude', titulo: 'Claude: con sesión', texto: [] };
@@ -433,7 +436,9 @@ async function actualizar(cuenta) {
   if (ocupado || Date.now() < esperaHasta) return; ocupado = true;
   try {
     // El motor opera en dos bolsas chicas (io y xyz): se leen las dos y se juntan.
-    const leerOrdenes = async () => (await Promise.all(DEXES.map((dex) => pedir({ type: 'openOrders', user: cuenta, dex })))).flatMap((x) => (Array.isArray(x) ? x : []));
+    // frontendOpenOrders (24/11): pesa lo mismo que openOrders y dice cuáles son frenos en la bolsa (isTrigger) y cuál
+    // es la salida (reduceOnly), así «Qué está haciendo» no las cuenta como órdenes para entrar.
+    const leerOrdenes = async () => (await Promise.all(DEXES.map((dex) => pedir({ type: 'frontendOpenOrders', user: cuenta, dex })))).flatMap((x) => (Array.isArray(x) ? x : []));
     const tocaOrdenes = Date.now() - ordenesT >= ORDENES_CADA_MS;
     let [perps, spot, ordenes, fills] = await Promise.all([
       Promise.all(DEXES.map((dex) => pedir({ type: 'clearinghouseState', user: cuenta, dex }))),
@@ -593,6 +598,43 @@ function grafico(dias, hoy, abiertaHoy, cuenta) {
   return caja;
 }
 
+// QUÉ ESTÁ HACIENDO (24/11; ella, con la escalera de PRL recién encendida: «no lo veo en la app del celu»). Por mercado:
+// las órdenes que esperan para entrar (cuántas, de cuánto y a qué distancia del precio), la salida, los frenos puestos
+// en la bolsa y, si la PC contesta, lo que dice de cada programa (en pausa, hasta cuándo). Se arma con lo que ya se lee.
+const pct = (x) => (Math.round(x * 10) / 10).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + ' %';   // sin cortar «1 %» en dos renglones
+const conY = (xs) => (xs.length <= 1 ? xs.join('') : xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1]);
+// La PC manda la hora del vencimiento («18:45»), que nunca está a más de 24 h: si hoy ya pasó, es mañana.
+function cuandoVence(hhmm) { return (String(hhmm) <= hora(Date.now()) ? 'mañana' : 'hoy') + ' a las ' + hhmm; }
+function queHace(ordenes) {
+  const nombre = (m) => String(m).split(':').pop(), porM = new Map();
+  for (const o of ordenes) { const m = nombre(o.coin); if (!porM.has(m)) porM.set(m, []); porM.get(m).push(o); }
+  const progs = C.pc === 'contesta' && C.r ? (C.r.programas || []) : [];
+  for (const p of progs) if (!porM.has(nombre(p.m))) porM.set(nombre(p.m), []);
+  const renglones = [];
+  for (const [m, os] of porM) {
+    const ent = os.filter((o) => !o.isTrigger && !o.reduceOnly), frenos = os.filter((o) => o.isTrigger).length, sale = os.some((o) => !o.isTrigger && o.reduceOnly);
+    const compras = ent.filter((o) => o.side === 'B'), ventas = ent.filter((o) => o.side !== 'B'), p = progs.find((x) => nombre(x.m) === m);
+    const partes = [];
+    if (ent.length) {
+      const cant = [compras.length ? `${compras.length} ${compras.length === 1 ? 'compra' : 'compras'}` : '', ventas.length ? `${ventas.length} ${ventas.length === 1 ? 'venta' : 'ventas'}` : ''].filter(Boolean);
+      const montos = ent.map((o) => +o.limitPx * +o.sz), mn = Math.round(Math.min(...montos)), mx = Math.round(Math.max(...montos));
+      let txt = `${conY(cant)} de ${mn === mx ? mn : mn + ' a ' + mx} USD`;
+      if (compras.length && ventas.length) {
+        const c = (Math.max(...compras.map((o) => +o.limitPx)) + Math.min(...ventas.map((o) => +o.limitPx))) / 2;
+        const d = [...new Set(ent.map((o) => Math.round(Math.abs(+o.limitPx - c) / c * 1000) / 10))].sort((a, b) => a - b);
+        txt += `, a ${conY(d.map(pct))} del precio`;
+      }
+      partes.push(txt + ', esperando un salto para entrar.');
+    } else if (!sale) partes.push(p && !p.usd ? 'En pausa' + (p.vence ? ` hasta ${cuandoVence(p.vence)}` : '') + ': no pone órdenes.' : 'Sin órdenes por ahora.');
+    if (sale) partes.push('Tiene una posición y está saliendo.');
+    if (frenos) partes.push('Freno puesto en la bolsa.');
+    if (p && p.usd && p.vence) partes.push(`Así hasta ${cuandoVence(p.vence)}; después vuelve a lo de siempre.`);
+    if (p && p.parar) partes.push('Frenado.');
+    renglones.push(el('p', {}, el('b', {}, m + ' · '), partes.join(' ')));
+  }
+  if (!renglones.length) return null;
+  return [el('h2', {}, 'Qué está haciendo'), el('div', { class: 'tarjeta ahora' }, ...renglones)];
+}
 function pintar({ cuenta, perp, spot, ordenes, fills }) {
   U = medirLetra();
   const hoyDia = diaDe(Date.now()), hoy = inicioDe(hoyDia);
@@ -640,7 +682,7 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
     t('Ganancia total', usd(totalCon), !completo ? 'faltan operaciones viejas: la bolsa no las dio todas' : primerDia ? `desde el ${+primerDia.slice(8)}/${+primerDia.slice(5, 7)}` : 'desde que empezó', clase(totalCon)),
     t('Plata en la cuenta', plano(saldo), 'dólares digitales (USDC)'),
     t('Posición ahora', tam ? `${tam > 0 ? 'Compró' : 'Vendió'} ${plano(valorPos)}` : 'Ninguna', tam ? `resultado abierto ${usd(abierta)}` : 'todo cerrado'),
-    t('Última operación', ultima ? haceCuanto(ultima) : '—', nuestras.length === 1 ? '1 orden puesta' : `${nuestras.length} órdenes puestas`, '', true),
+    t('Última operación', ultima ? haceCuanto(ultima) : '—', (() => { const f = nuestras.filter((o) => o.isTrigger).length, o = nuestras.length - f; return (o === 1 ? '1 orden puesta' : `${o} órdenes puestas`) + (f ? ` y ${f === 1 ? '1 freno' : f + ' frenos'} en la bolsa` : ''); })(), '', true),
   );
   const lista = el('ul', { class: 'ops' });
   if (!ult.length) lista.append(el('li', {}, el('span', { class: 'que' }, 'Sin operaciones todavía')));
@@ -655,7 +697,7 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   );
   pintarSonido();
   grafAhora = { dias, hoy: hoyDia, abierta, cuenta };
-  app.replaceChildren(luces, luzdet, control, tarjetas, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
+  app.replaceChildren(luces, luzdet, control, tarjetas, ...(queHace(nuestras) || []), el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
   pintarLuces();
 }
 function pintarError(e) {
