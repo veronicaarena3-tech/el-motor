@@ -76,7 +76,7 @@ ul.ops li { display: flex; justify-content: space-between; gap: 10px; padding: 1
 ul.ops li:first-child { border-top: 0; }
 ul.ops .que { color: var(--suave); }
 ul.ops .res { font-weight: 600; white-space: nowrap; }
-.pie { font-size: var(--f15); color: var(--suave); margin-top: 16px; }
+.pie { font-size: var(--f17); color: var(--suave); margin-top: 16px; }   /* son frases: 17 (regla de diseño 5, 26/11) */
 .pie p { margin: 6px 0; }
 form.cuenta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 16px; }
 form.cuenta label { display: block; font-size: var(--f17); margin-bottom: 8px; }
@@ -104,12 +104,12 @@ a.bolsa.principal { border: 0; color: var(--frenar-texto); }
 button:active, a.bolsa:active { box-shadow: inset 0 0 0 5px rgba(127, 127, 127, .55); }
 .control > button.frenar:active, .control > a.bolsa.principal:active { box-shadow: 0 0 0 8px var(--fondo), inset 0 0 0 5px rgba(127, 127, 127, .55); }
 .aviso { border-radius: 14px; padding: 14px; font-size: var(--f17); border: 2px solid; margin-bottom: 10px; }
-.aviso p { margin: 4px 0; color: var(--texto); } .aviso .chica { font-size: var(--f15); }
-.chica { font-size: var(--f15); }
+.aviso p { margin: 4px 0; color: var(--texto); } .aviso .chica { font-size: var(--f17); }
+.chica { font-size: var(--f17); }   /* «chica» quedó de nombre: lo que lleva son frases, y van en 17 (regla de diseño 5, 26/11) */
 form.cuenta button { margin-top: 12px; width: 100%; min-height: 88px; font-size: var(--f22); font-weight: 700; border: 0; border-radius: 16px; background: var(--frenar); color: var(--frenar-texto); }
 /* El gráfico: columnas por día, arriba lo ganado y abajo lo perdido. Cada columna lleva su número escrito. */
 .graf { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px 8px 10px; margin-bottom: 14px; }
-.graf .sub { font-size: var(--f15); color: var(--suave); margin: 0 6px 10px; }
+.graf .sub { font-size: var(--f17); color: var(--suave); margin: 0 6px 10px; }
 .cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 .col { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .col .mas, .col .menos { display: flex; flex-direction: column; align-items: center; width: 100%; }
@@ -126,7 +126,7 @@ form.cuenta button { margin-top: 12px; width: 100%; min-height: 88px; font-size:
 button.col { -webkit-appearance: none; appearance: none; width: 100%; margin: 0; padding: 2px 0 4px; background: none; border: 2px solid transparent; border-radius: 10px; font: inherit; color: inherit; text-align: center; cursor: pointer; }
 button.col span { display: block; }
 button.col[aria-pressed="true"] { border-color: var(--texto); background: var(--gris-fondo); }
-.graf .toca { font-size: var(--f15); color: var(--suave); margin: 10px 6px 0; }
+.graf .toca { font-size: var(--f17); color: var(--suave); margin: 10px 6px 0; }
 .det { margin: 12px 4px 0; padding-top: 10px; border-top: 1px solid var(--borde); }
 .det h3 { font-size: var(--f17); margin: 0 2px 6px; }
 .det p { margin: 6px 2px 0; }
@@ -160,7 +160,9 @@ button.col[aria-pressed="true"] { border-color: var(--texto); background: var(--
 // una campanita cuando la ganancia de hoy llega a un dólar más.
 const API = 'https://api.hyperliquid.xyz/info', NTFY = 'https://ntfy.sh', BOLSA = 'https://app.hyperliquid.xyz/trade';
 const DEXES = ['io', 'xyz'];
-const TOPE_DIA = 10, TOPE_TOTAL = 30, POSICION_MAX = 605, ORDENES_MAX = 14;
+// 26/11/2026: el tope total es −45 (desde el 25/11) y el de órdenes se cuenta POR MERCADO (el motor opera hasta 6 a la
+// vez): 3 filas por lado y la salida. Los frenos puestos en la bolsa no cuentan.
+const TOPE_DIA = 10, TOPE_TOTAL = 45, POSICION_MAX = 605, ORDENES_MAX = 7;
 const app = document.getElementById('app');
 const zona = { timeZone: 'America/Argentina/Buenos_Aires' };
 const usd = (x) => (x <= -0.005 ? '−' : x >= 0.005 ? '+' : '') + Math.abs(x).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD';
@@ -257,6 +259,7 @@ async function preguntarPC() {
   const id = sena(); let r = null;
   try { await publicar(canal, 'estado ' + id); r = await esperarRespuesta(canal, 'estado', id, 25); } catch { /* sin señal */ }
   C.pc = r ? 'contesta' : 'callada'; C.r = r; C.cuando = Date.now(); preguntando = false; pintarControl();
+  if (ultimoDato) pintar(ultimoDato);   // 26/11: lo que dice la PC de cada mercado se ve en el momento, no un minuto después
 }
 async function frenarTodo() {
   const canal = leerCanal(); if (!canal) return;
@@ -294,7 +297,10 @@ function pintarControl() {
     L.claude = { tipo: 'nada', corto: 'Claude', titulo: 'Claude: no se sabe', texto: ['Lo dice la PC, y la PC no contesta.'] };
   } else {
     const r = C.r, ps = r.programas || [];
-    L.pc = { tipo: 'ok', corto: 'PC', titulo: 'La PC contesta (' + hora(C.cuando) + ')', texto: [ps.length ? 'Operan: ' + ps.map((p) => String(p.m).split(':').pop() + (p.usd ? ' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '') : ' en pausa' + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '')) + (p.parar ? ' — frenado' : '')).join('; ') + '.' : 'Ningún programa del motor está operando.'] };
+    // 26/11: parte del motor opera desde el servidor de afuera («donde: servidor»): se dice cuál, porque eso sigue aunque la PC se apague.
+    const dice = (p) => String(p.m).split(':').pop() + (p.usd ? ' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '') : ' en pausa' + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '')) + (p.parar ? ' — frenado' : '');
+    const enSrv = ps.filter((p) => p.donde === 'servidor'), enPC = ps.filter((p) => p.donde !== 'servidor');
+    L.pc = { tipo: 'ok', corto: 'PC', titulo: 'La PC contesta (' + hora(C.cuando) + ')', texto: !ps.length ? ['Ningún programa del motor está operando.'] : enSrv.length ? ['Desde el servidor (siguen aunque la PC se apague): ' + enSrv.map(dice).join('; ') + '.', ...(enPC.length ? ['Desde la PC: ' + enPC.map(dice).join('; ') + '.'] : [])] : ['Operan: ' + ps.map(dice).join('; ') + '.'] };
     L.claude = r.claude && r.claude.ok === false
       ? { tipo: 'alto', corto: 'Claude', titulo: 'Claude sin sesión desde las ' + r.claude.desde, texto: ['No recibe pedidos hasta que alguien escriba /login en la PC. «Frenar todo» anda igual.'], atencion: true }
       : { tipo: 'ok', corto: 'Claude', titulo: 'Claude: con sesión', texto: [] };
@@ -377,7 +383,7 @@ function dolarArriba(deHoy, dia) {
 // programas del motor. Con el celu abierto los programas recibían rechazos (429). Por eso: se actualiza una vez por minuto,
 // las órdenes puestas se miran cada dos minutos, y si la bolsa pide esperar, la página espera dos minutos sin insistir.
 const CADA_MS = 60000, ORDENES_CADA_MS = 110000, ESPERA_429_MS = 120000;
-let ultimoBien = 0, timer = null, ocupado = false, esperaHasta = 0, ordenesMem = [], ordenesT = 0;
+let ultimoBien = 0, timer = null, ocupado = false, esperaHasta = 0, ordenesMem = [], ordenesT = 0, ultimoDato = null;
 // Cada orden vive unos segundos (se pone y se saca siguiendo a la cuenta copiada): una sola mirada puede caer entre una
 // y otra. Si no ve ninguna, mira dos veces más; y recuerda la última vez que vio órdenes puestas (20/11).
 let ordenVista = 0;
@@ -452,7 +458,8 @@ async function actualizar(cuenta) {
     if (tocaOrdenes) { ordenesMem = Array.isArray(ordenes) ? ordenes : []; ordenesT = Date.now(); }
     if (Array.isArray(ordenes) && ordenes.length) { ordenVista = Date.now(); try { localStorage.setItem('ordenVista', String(ordenVista)); } catch { /* */ } }
     ultimoBien = Date.now();
-    pintar({ cuenta, perp, spot, ordenes: Array.isArray(ordenes) ? ordenes : [], fills: Array.isArray(fills) ? fills : [] });
+    ultimoDato = { cuenta, perp, spot, ordenes: Array.isArray(ordenes) ? ordenes : [], fills: Array.isArray(fills) ? fills : [] };
+    pintar(ultimoDato);
   } catch (e) {
     if (/429/.test(String(e && e.message))) esperaHasta = Date.now() + ESPERA_429_MS;
     pintarError(e);
@@ -625,10 +632,15 @@ function queHace(ordenes) {
         txt += `, a ${conY(d.map(pct))} del precio`;
       }
       partes.push(txt + ', esperando un salto para entrar.');
-    } else if (!sale) partes.push(p && !p.usd ? 'En pausa' + (p.vence ? ` hasta ${cuandoVence(p.vence)}` : '') + ': no pone órdenes.' : 'Sin órdenes por ahora.');
+    } else if (!sale) partes.push(p && !p.usd ? 'En pausa' + (p.vence ? ` hasta ${cuandoVence(p.vence)}` : '') + ': no pone órdenes.' : p && p.espera === 'papel' ? 'Espera a que su prueba en papel vuelva a ganar; mientras tanto no pone órdenes.' : 'Sin órdenes por ahora.');
     if (sale) partes.push('Tiene una posición y está saliendo.');
     if (frenos) partes.push('Freno puesto en la bolsa.');
-    if (p && p.usd && p.vence) partes.push(`Así hasta ${cuandoVence(p.vence)}; después vuelve a lo de siempre.`);
+    // Lo que pasa al vencer lo dice la PC («despues»: 0 es en pausa). Si no lo dice, no se inventa (26/11).
+    if (p && p.usd && p.vence) {
+      const cuando = cuandoVence(p.vence), Cuando = cuando[0].toUpperCase() + cuando.slice(1);
+      if (!ent.length && !sale) { if (p.despues === 0) partes.push(`${Cuando} queda en pausa.`); }
+      else partes.push(`Así hasta ${cuando}` + (p.despues === 0 ? '; después queda en pausa.' : p.despues > 0 ? `; después sigue con ${p.despues} USD.` : '.'));
+    }
     if (p && p.parar) partes.push('Frenado.');
     renglones.push(el('p', {}, el('b', {}, m + ' · '), partes.join(' ')));
   }
@@ -661,17 +673,21 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   const usdc = (spot.balances || []).find((b) => b.coin === 'USDC');
   const saldo = usdc ? +usdc.total : 0;
   const diaCon = dia + abierta, totalCon = total + abierta;
+  const porMercado = new Map(); for (const o of nuestras) if (!o.isTrigger) porMercado.set(o.coin, (porMercado.get(o.coin) || 0) + 1);
+  const demasiadas = [...porMercado.values()].some((n) => n > ORDENES_MAX);
+  // Cuántos mercados tienen órdenes y cuántos esperan a su prueba en papel (lo dice la PC cuando contesta).
+  const progsPC = C.pc === 'contesta' && C.r ? (C.r.programas || []) : [], esperan = progsPC.filter((x) => x.espera === 'papel').length;
 
   // El semáforo dice siempre si hay algo para hacer (regla de diseño 1: si lo que toca es esperar, la pantalla lo dice).
   let tipo, corto, grande, chico, tranqui = false;
   if (totalCon <= -TOPE_TOTAL) { tipo = 'alto'; corto = 'Parado'; grande = 'Parado: tocó el tope total'; chico = `Perdió ${plano(-totalCon)} en total. El programa paró solo y no vuelve a operar hasta que lo decidas. No hace falta hacer nada.`; }
   else if (diaCon <= -TOPE_DIA) { tipo = 'alto'; corto = 'Parado por hoy'; grande = 'Parado por hoy'; chico = `Hoy perdió ${plano(-diaCon)}. El programa frena solo hasta mañana. No hace falta hacer nada.`; }
-  else if (valorPos > POSICION_MAX || nuestras.length > ORDENES_MAX) { tipo = 'alto'; corto = 'Algo raro'; grande = 'Algo raro: el guardián actúa'; chico = 'Hay más posición u órdenes de lo permitido. El guardián las saca solo y avisa a Claude.'; }
+  else if (valorPos > POSICION_MAX || demasiadas) { tipo = 'alto'; corto = 'Algo raro'; grande = 'Algo raro: el guardián actúa'; chico = 'Hay más posición u órdenes de lo permitido. El guardián las saca solo y avisa a Claude.'; }
   else if (diaCon <= -0.7 * TOPE_DIA) { tipo = 'ojo'; corto = 'Cerca del tope'; grande = 'Atención: cerca del tope de hoy'; chico = `Hoy va ${usd(diaCon)}. Si llega a −${TOPE_DIA} USD, para solo.`; }
   else if (!nTotal && !nuestras.length) { tipo = 'nada'; corto = 'Sin operar'; grande = 'Todavía sin operar'; chico = 'La cuenta no tiene operaciones ni órdenes. Cuando el programa arranque, aparecen acá.'; }
   else if (pausa) { tipo = 'ok'; corto = 'En pausa'; grande = 'En pausa, sin plata en juego'; chico = `A las ${hora(ultFill.time)} cerró todo. Si fue el freno, vuelve a operar solo a las ${hora(ultFill.time + 30 * 60000)}. Hoy va ${usd(diaCon)}.`; tranqui = true; }
   else if (!operando && !tam && Date.now() - ultima > 30 * 60000) { tipo = 'ojo'; corto = 'Quieto'; grande = `Quieto ${haceCuanto(ultima)}`; chico = 'Sin órdenes ni posición: no hay plata en juego. Puede estar esperando a que su prueba en papel vuelva a ganar, o detenido. Si el programa se cae, el guardián avisa.'; }
-  else if (operando) { tipo = 'ok'; corto = 'Operando'; grande = 'Operando'; chico = `Hay órdenes puestas. Hoy va ${usd(diaCon)}.`; tranqui = true; }
+  else if (operando) { tipo = 'ok'; corto = 'Operando'; grande = 'Operando'; chico = `Hay órdenes puestas${progsPC.length > 1 ? ` en ${porMercado.size} de ${progsPC.length} mercados` : ''}. ${esperan ? (esperan === 1 ? 'Uno espera' : esperan + ' esperan') + ' a que su prueba en papel vuelva a ganar. ' : ''}Hoy va ${usd(diaCon)}.`; tranqui = true; }
   else { tipo = 'ok'; corto = 'En orden'; grande = 'En orden'; chico = `Hoy va ${usd(diaCon)}.`; tranqui = true; }
 
   L.motor = { tipo, corto, titulo: grande, texto: [chico], tranqui, atencion: tipo === 'alto' || tipo === 'nada' };
@@ -715,7 +731,7 @@ function arrancar() {
   if (!cuenta) { pedirCuenta(); return; }
   L.motor = { tipo: 'nada', corto: 'Leyendo', titulo: 'Leyendo la cuenta…', texto: [] }; L.abierta = null;
   app.replaceChildren(luces, luzdet, control); pintarLuces();
-  fillsMem = null;
+  fillsMem = null; ultimoDato = null;
   ordenesT = 0; ordenesMem = [];
   clearInterval(timer); actualizar(cuenta); timer = setInterval(() => actualizar(cuenta), CADA_MS);
   preguntarPC();
