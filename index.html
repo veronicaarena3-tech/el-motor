@@ -143,6 +143,45 @@ button.col[aria-pressed="true"] { border-color: var(--texto); background: var(--
 .heje { display: grid; grid-template-columns: repeat(4, 1fr); margin: 2px 2px 0; font-size: var(--f15); color: var(--suave); }
 .sonido { margin-bottom: 14px; }
 .sonido p { margin: 0 2px; color: var(--suave); }
+/* LO NUEVO (27/11/2026; ella: «Todo tiene que ser visible para mí en la app… Que sea user friendly. Clara» y «Prioridad: lo
+   que tengo que hacer yo ahora»). «Te toca» va arriba de todo cuando hay algo que le toca a ella: UNA sola cosa, en una
+   frase. No es un botón y no lleva el color de actuar (ese sigue siendo de «Frenar todo»): se distingue por el marco de
+   tinta y la mano. Debajo, las tarjetas de lo nuevo. Nada de esto se mueve. */
+.tetoca { background: var(--tarjeta); border: 3px solid var(--texto); border-radius: 16px; padding: 12px 14px 14px; margin: 0 0 12px; overflow-wrap: anywhere; }
+.tetoca p { margin: 0; }
+.tetoca .rot { font-size: var(--f17); font-weight: 700; }
+.tetoca .que { font-size: var(--f22); font-weight: 700; line-height: 1.25; margin-top: 4px; }
+.tetoca .como { font-size: var(--f17); margin-top: 6px; }
+.tetoca .sigue { font-size: var(--f17); color: var(--suave); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); }
+.tetoca .cuando { font-size: var(--f17); color: var(--suave); margin-top: 6px; }   /* es una frase: 17 */
+/* Si no le toca nada, se dice en una línea, en el mismo lugar (arriba de todo). */
+p.nadatoca { font-size: var(--f17); font-weight: 600; line-height: 1.3; margin: 0 2px 8px; overflow-wrap: anywhere; }
+.nov { overflow-wrap: anywhere; }
+.nov p { margin: 0; font-size: var(--f17); line-height: 1.4; }
+.nov p + p, .nov ul + p { margin-top: 8px; }
+.nov p.rot { font-size: var(--f15); color: var(--suave); margin-top: 12px; }
+.nov .gris, .tetoca .gris { color: var(--suave); }
+.nov ul.ops { border: 0; border-radius: 0; background: none; }
+.nov ul.ops li { padding: 9px 0; }
+.nov ul.ops .que { color: var(--texto); }
+p.viejo { font-size: var(--f17); color: var(--suave); margin: 0 0 8px; }
+.oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Los pasos del camino: tilde y palabra (no sólo color), y de quién es cada uno. */
+ul.pasos { list-style: none; margin: 8px 0 0; padding: 0; }
+ul.pasos li { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; padding: 9px 0 9px 1.75em; border-top: 1px solid var(--borde); font-size: var(--f17); line-height: 1.3; }
+ul.pasos .marca { position: absolute; left: 0; font-weight: 700; }
+ul.pasos .paso { flex: 1 1 8em; min-width: 0; }
+ul.pasos .quien { flex: 0 0 auto; margin-left: auto; font-size: var(--f15); color: var(--suave); }
+ul.pasos li.a .paso { font-weight: 700; }
+ul.pasos li.a .quien { font-weight: 700; color: var(--texto); }
+ul.pasos li.h .marca { color: var(--verde); }
+/* Lo que se fue mirando: plegado; se abre con un toque. El veredicto va con su signo y su palabra. */
+ul.mirado { list-style: none; margin: 10px 0 0; padding: 0; }
+ul.mirado li { padding: 10px 0; border-top: 1px solid var(--borde); font-size: var(--f17); line-height: 1.35; }
+ul.mirado .nom { font-weight: 700; }
+ul.mirado .ver { font-size: var(--f15); font-weight: 700; white-space: nowrap; }
+ul.mirado .ver.v { color: var(--verde); } ul.mirado .ver.e { color: var(--ambar); } ul.mirado .ver.d { color: var(--suave); }
+ul.mirado .por { display: block; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -158,6 +197,8 @@ button.col[aria-pressed="true"] { border-color: var(--texto); background: var(--
 // contesta por el mismo canal. No puede encender nada ni mover plata. El canal tampoco queda escrito acá.
 // 24/11/2026: la letra sigue a la del teléfono, lo que se lee de corrido va en tinta oscura, el gráfico de la ganancia por día, y
 // una campanita cuando la ganancia de hoy llega a un dólar más.
+// 27/11/2026: LO NUEVO. Cuando la PC contesta «estado» manda además un bloque «novedades» (motor/celu-novedades.mjs): lo
+// que le toca a ella ahora, el camino del lugar nuevo, la prueba en papel y lo que se fue mirando. Más abajo, «LO NUEVO».
 const API = 'https://api.hyperliquid.xyz/info', NTFY = 'https://ntfy.sh', BOLSA = 'https://app.hyperliquid.xyz/trade';
 const DEXES = ['io', 'xyz'];
 // 26/11/2026: el tope total es −45 (desde el 25/11) y el de órdenes se cuenta POR MERCADO (el motor opera hasta 6 a la
@@ -258,7 +299,7 @@ async function preguntarPC() {
   preguntando = true; if (C.pc !== 'contesta') C.pc = 'preguntando'; pintarControl();
   const id = sena(); let r = null;
   try { await publicar(canal, 'estado ' + id); r = await esperarRespuesta(canal, 'estado', id, 25); } catch { /* sin señal */ }
-  C.pc = r ? 'contesta' : 'callada'; C.r = r; C.cuando = Date.now(); preguntando = false; pintarControl();
+  C.pc = r ? 'contesta' : 'callada'; C.r = r; C.cuando = Date.now(); recibirNovedades(r); preguntando = false; pintarControl();
   if (ultimoDato) pintar(ultimoDato);   // 26/11: lo que dice la PC de cada mercado se ve en el momento, no un minuto después
 }
 async function frenarTodo() {
@@ -282,7 +323,7 @@ const bolsaGrande = () => [enlaceBolsa(true), el('p', { class: 'chica como' }, C
 const hayQueFrenarEnLaBolsa = () => C.pc === 'callada' || C.paso === 'sin-respuesta' || C.paso === 'sin-enviar' || (C.paso === 'hecho' && !!C.res && !C.res.ok);
 function pintarControl() {
   const canal = leerCanal(); control.replaceChildren();
-  if (!canal) { L.pc = L.claude = null; pintarLuces(); return; }
+  if (!canal) { L.pc = L.claude = null; pintarLuces(); pintarNovedades(); return; }
   // Un solo botón grande por momento (regla de diseño 1). Si la PC no contesta, o no pudo frenar, lo que hay que tocar es
   // «Frenar en la bolsa»; «Frenar todo» queda debajo, más chico, con las mismas palabras (deja el pedido para cuando vuelva).
   const fallo = C.paso === 'sin-respuesta' || C.paso === 'sin-enviar' || (C.paso === 'hecho' && C.res && !C.res.ok);
@@ -298,7 +339,7 @@ function pintarControl() {
   } else {
     const r = C.r, ps = r.programas || [];
     // 26/11: parte del motor opera desde el servidor de afuera («donde: servidor»): se dice cuál, porque eso sigue aunque la PC se apague.
-    const dice = (p) => String(p.m).split(':').pop() + (p.usd ? ' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '') : ' en pausa' + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '')) + (p.parar ? ' — frenado' : '');
+    const dice = (p) => String(p.m).split(':').pop() + (p.lugar === 'extended' ? ' (en Extended)' : '') + (p.usd ?' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '') : ' en pausa' + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '')) + (p.parar ? ' — frenado' : '');
     const enSrv = ps.filter((p) => p.donde === 'servidor'), enPC = ps.filter((p) => p.donde !== 'servidor');
     L.pc = { tipo: 'ok', corto: 'PC', titulo: 'La PC contesta (' + hora(C.cuando) + ')', texto: !ps.length ? ['Ningún programa del motor está operando.'] : enSrv.length ? ['Desde el servidor (siguen aunque la PC se apague): ' + enSrv.map(dice).join('; ') + '.', ...(enPC.length ? ['Desde la PC: ' + enPC.map(dice).join('; ') + '.'] : [])] : ['Operan: ' + ps.map(dice).join('; ') + '.'] };
     L.claude = r.claude && r.claude.ok === false
@@ -306,6 +347,7 @@ function pintarControl() {
       : { tipo: 'ok', corto: 'Claude', titulo: 'Claude: con sesión', texto: [] };
   }
   pintarLuces();
+  pintarNovedades();   // 27/11: «Te toca» y lo nuevo (dónde va «Te toca» depende de si hay que frenar)
   if (C.pc === 'callada' && decide) control.append(enLaBolsa());
   if (bolsaManda && !fallo) control.append(...bolsaGrande());
   if (C.paso === 'confirmar') {
@@ -322,6 +364,176 @@ function pintarControl() {
   const b = bolsaManda ? el('button', { class: 'otro', type: 'button' }, 'Frenar todo') : el('button', { class: 'frenito', type: 'button' }, el('span', {}, 'Frenar todo'));
   b.addEventListener('click', () => { C.paso = 'confirmar'; C.confirmarDesde = Date.now(); pintarControl(); });
   control.append(b);
+  acomodarToca();   // 27/11: ahora que «Frenar todo» está dibujado, que «Te toca» no lo saque de la primera pantalla
+}
+
+// ---------- LO NUEVO: lo que le toca a ella, el camino del lugar nuevo, la prueba en papel y lo que se fue mirando ----------
+// 27/11/2026, ella: «Todo tiene que ser visible para mí en la app que tengo en el celu el motor. Que sea user friendly.
+// Clara» y «Prioridad: lo que tengo que hacer yo ahora».
+// De dónde sale: la página no puede leer nada de la PC. Cuando la PC contesta «estado», manda además un bloque
+// «novedades» (lo arma motor/celu-novedades.mjs con D:/motor/celu/novedades.json, el papel en vivo y, cuando opere, el
+// programa del lugar nuevo). La página lo guarda en el teléfono.
+//   · Si la PC no contesta, muestra lo último que recibió y dice de cuándo es.
+//   · Si la PC contesta sin ese bloque (un control viejo), no inventa: no muestra nada de esto y borra lo guardado.
+// «Te toca» va arriba de todo. Sólo baja, debajo de los botones de frenar, en el momento de frenar o cuando hay que
+// frenar en la bolsa: ahí lo primero que hay que hacer es eso (regla de diseño 1: una sola cosa para hacer, y se ve cuál).
+// Si no le toca nada, en ese mismo lugar va una línea que lo dice («✔ No te toca hacer nada ahora.»), y sólo cuando la
+// PC lo acaba de decir y ninguna luz está en rojo (más abajo, nadaQueHacer).
+const CLAVE_NOV = 'novedades1';
+const N = { dato: null, recibido: 0, fresco: false };   // dato: el bloque · recibido: cuándo llegó · fresco: lo dijo la PC en la última pregunta
+const novBien = (n) => !!n && typeof n === 'object' && n.v === 1;
+function cargarNovedades() {
+  N.dato = null; N.recibido = 0; N.fresco = false;
+  if (!leerCanal()) return;
+  try { const g = JSON.parse(localStorage.getItem(CLAVE_NOV) || 'null'); if (g && g.t > 0 && novBien(g.n)) { N.dato = g.n; N.recibido = g.t; } } catch { /* nada guardado */ }
+}
+function recibirNovedades(r) {
+  if (!r) { N.fresco = false; return; }   // la PC no contestó: queda lo último, y se dice de cuándo es
+  if (novBien(r.novedades)) { N.dato = r.novedades; N.recibido = Date.now(); N.fresco = true; try { localStorage.setItem(CLAVE_NOV, JSON.stringify({ t: N.recibido, n: N.dato })); } catch { /* sin lugar: queda en esta apertura */ } }
+  else { N.dato = null; N.recibido = 0; N.fresco = false; try { localStorage.removeItem(CLAVE_NOV); } catch { /* */ } }
+}
+// «hoy a las 17:40», «ayer a las…», «mañana a las…», «el 25/11 a las…»
+function cuandoEs(t) {
+  const d = diaDe(t), ahora = Date.now();
+  return (d === diaDe(ahora) ? 'hoy' : d === diaDe(ahora - 86400e3) ? 'ayer' : d === diaDe(ahora + 86400e3) ? 'mañana' : 'el ' + +d.slice(8) + '/' + +d.slice(5, 7)) + ' a las ' + hora(t);
+}
+// Si lo que se muestra no lo dijo la PC recién, se dice de cuándo es.
+function deCuando() {
+  if (N.fresco || !N.dato) return null;
+  return C.pc === 'callada' ? `La PC no contesta. Esto es lo último que dijo, ${cuandoEs(N.recibido)}: puede haber cambiado.` : `Lo último que dijo la PC, ${cuandoEs(N.recibido)}. Le estoy preguntando de nuevo…`;
+}
+const textos = (xs) => (Array.isArray(xs) ? xs.filter((x) => typeof x === 'string' && x) : []);
+function tarjetaToca(n) {
+  const t = n.toca, viejo = deCuando(), sigue = textos(t.despues);
+  const caja = el('section', { class: 'tetoca', 'aria-label': 'Te toca' }, el('p', { class: 'rot' }, '👉 Te toca'), el('p', { class: 'que' }, t.que));
+  if (typeof t.detalle === 'string' && t.detalle) caja.append(el('p', { class: 'como' }, t.detalle));
+  if (sigue.length) caja.append(el('p', { class: 'sigue' }, el('b', {}, 'Después: '), sigue.join(' → ')));
+  if (viejo) caja.append(el('p', { class: 'como gris' }, viejo));
+  else if (n.t > 0) caja.append(el('p', { class: 'cuando' }, `Anotado ${cuandoEs(n.t)}.`));
+  return caja;
+}
+// El lugar nuevo cuando ya opera con plata: lo mismo que se dice de los mercados de siempre.
+function fraseOpera(o) {
+  const QUIETO = { frenado: 'Frenado: no opera hasta que lo decidas.', 'tope-total': 'Paró solo: tocó su tope total.', 'tope-dia': 'Paró por hoy: tocó su tope del día.', pausa: 'En pausa por el freno' + (o.hasta ? ' hasta las ' + o.hasta : '') + '.', 'sin-tamano': 'En pausa: no pone órdenes.', quieto: 'Quieto por ahora.' };
+  const partes = [];
+  if (!o.corre) partes.push('El programa no está corriendo ahora' + (o.visto > 0 ? ` (último dato: ${cuandoEs(o.visto)})` : '') + '. ');
+  else if (o.quieto) partes.push((QUIETO[o.quieto] || QUIETO.quieto) + ' ');
+  else if (o.usd > 0) partes.push(`Opera con órdenes de ${o.usd} USD` + (o.puestas > 0 ? ` (${o.puestas === 1 ? '1 puesta' : o.puestas + ' puestas'} ahora)` : '') + '. ');
+  else partes.push('En pausa: no pone órdenes. ');
+  if (typeof o.hoy === 'number' && typeof o.total === 'number') partes.push('Hoy lleva ', el('b', { class: clase(o.hoy) }, usd(o.hoy)), ' y en total ', el('b', { class: clase(o.total) }, usd(o.total)), '. ');
+  partes.push(Math.abs(o.pos) >= 0.005 ? `Tiene una posición: ${o.pos > 0 ? 'compró' : 'vendió'} ${plano(Math.abs(o.pos))}.` : 'Sin posición ahora.');
+  return partes;
+}
+function tarjetaCamino(c) {
+  const caja = el('div', { class: 'tarjeta nov' });
+  const opera = (Array.isArray(c.opera) ? c.opera : []).filter((o) => o && typeof o === 'object');
+  const pasos = (Array.isArray(c.pasos) ? c.pasos : []).filter((p) => Array.isArray(p) && typeof p[0] === 'string' && p[0]);
+  const quien = (p) => (p[1] === 'v' ? 'vos' : 'el motor');
+  if (opera.length) {
+    for (const o of opera) caja.append(el('p', {}, el('b', {}, String(o.m ?? '') + ' · '), ...fraseOpera(o)));
+    const faltan = pasos.filter((p) => p[2] !== 'h');
+    if (faltan.length) caja.append(el('p', { class: 'gris' }, 'Falta: ' + faltan.map((p) => `${p[0]} (${quien(p)})`).join('; ') + '.'));
+    return caja;
+  }
+  if (!pasos.length) return null;
+  const hechos = pasos.filter((p) => p[2] === 'h').length, deTantos = pasos.length === 1 ? '1 paso' : pasos.length + ' pasos';
+  caja.append(el('p', {}, hechos === pasos.length ? (pasos.length === 1 ? 'El paso está hecho.' : `Los ${pasos.length} pasos están hechos.`) : `Van ${hechos} de ${deTantos}.`));
+  if (typeof c.nota === 'string' && c.nota) caja.append(el('p', {}, c.nota));   // cómo está hoy: «tu plata está quieta»
+  const lista = el('ul', { class: 'pasos' });
+  for (const p of pasos) {
+    const est = p[2] === 'h' ? 'h' : p[2] === 'a' ? 'a' : 'f';
+    lista.append(el('li', { class: est },
+      el('span', { class: 'marca', 'aria-hidden': 'true' }, est === 'h' ? '✔' : est === 'f' ? '○' : p[1] === 'v' ? '👉' : '⏳'),
+      el('span', { class: 'paso' }, el('span', { class: 'oculto' }, est === 'h' ? 'Hecho: ' : est === 'a' ? 'Ahora: ' : 'Falta: '), p[0]),
+      el('span', { class: 'quien' }, quien(p) + (est === 'a' ? ', ahora' : ''))));
+  }
+  caja.append(lista);
+  return caja;
+}
+// La distancia al precio viene en centésimas de por ciento: 5 → «0,05 %».
+const distancia = (cc) => (cc / 100).toLocaleString('es-AR', { maximumFractionDigits: 2 }) + '\u00a0%';
+function tarjetaPapel(p) {
+  const caja = el('div', { class: 'tarjeta nov' }), lugares = textos(p.lugares);
+  caja.append(el('p', {}, 'El motor prueba ', el('b', {}, `${p.n} ${p.n === 1 ? 'combinación' : 'combinaciones'}`), ' de lugar, mercado y distancia al precio' + (lugares.length ? ', en ' + conY(lugares) : '') + (p.desde > 0 ? `, desde ${cuandoEs(p.desde)}` : '') + '. ', el('b', {}, 'Es en papel: no hay plata puesta.')));
+  if (!p.corre) caja.append(el('p', {}, '✖ La prueba no está corriendo ahora' + (p.visto > 0 ? ` (último dato: ${cuandoEs(p.visto)})` : '') + '.'));
+  const top = (Array.isArray(p.top) ? p.top : []).filter((f) => Array.isArray(f) && typeof f[3] === 'number').slice(0, 3);
+  if (top.length) {
+    const lista = el('ul', { class: 'ops' });
+    for (const f of top) lista.append(el('li', {}, el('span', { class: 'que' }, `${f[0]} · ${f[1]} · a ${distancia(+f[2] || 0)} del precio`), el('span', { class: 'res ' + clase(f[3]) }, usd(f[3]))));
+    const todas = !(p.con > top.length);   // operaron tan pocas que no hay «mejores»: son todas las que hay
+    caja.append(el('p', { class: 'rot' }, todas ? (top.length === 1 ? 'La única que ya operó' : `Las ${top.length} que ya operaron`) : `Las ${top.length} que mejor vienen`), lista);
+  }
+  // Debajo, en gris y de a un renglón: cuántas operaron y con cuánto; que con pocas horas no dice nada; cuándo se elige.
+  const notas = [], usdOrden = top.length && top.every((f) => f[4] === top[0][4]) ? top[0][4] : 0;
+  const operaron = !top.length ? 'Todavía ninguna hizo una operación.' : p.con > 0 && p.n > p.con ? `Ya operaron ${p.con} de las ${p.n}.` : '';
+  if (operaron || usdOrden > 0) notas.push((operaron + (usdOrden > 0 ? ` Cada una, con órdenes de ${usdOrden} USD en papel.` : '')).trim());
+  if (p.desde > 0 && Date.now() - p.desde < 12 * 3600e3) notas.push('Lleva pocas horas: estos números todavía no dicen nada.');
+  // Las dos fechas de la prueba: cuándo se eligen las mejores y cuándo se la juzga. Las que ya pasaron no se dicen.
+  const fechas = [];
+  if (p.elige > Date.now() && p.desde > 0) fechas.push(`A las ${Math.round((p.elige - p.desde) / 3600e3)} horas se eligen las mejores: ${cuandoEs(p.elige)}.`);
+  if (p.juzga > Date.now()) fechas.push(`La prueba se juzga ${cuandoEs(p.juzga)}.`);
+  if (fechas.length) notas.push(fechas.join(' '));
+  for (const t of notas) caja.append(el('p', { class: 'gris' }, t));
+  return caja;
+}
+// Lo que se fue mirando: plegado. Un segundo toque seguido no lo vuelve a cerrar (regla de diseño 4).
+let miradoAbierto = false, miradoToque = 0;
+const VEREDICTO = { v: '✔ vale la pena', e: '… en espera', d: '✖ descartado' };
+function tarjetaMirado(n) {
+  const m = n.mirado.filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0] && ['v', 'e', 'd'].includes(x[1]));
+  if (!m.length) return null;
+  const cuantos = { v: 0, e: 0, d: 0 }; for (const x of m) cuantos[x[1]]++;
+  const partes = [cuantos.v ? `${cuantos.v} ${cuantos.v === 1 ? 'vale' : 'valen'} la pena` : '', cuantos.e ? `${cuantos.e} en espera` : '', cuantos.d ? `${cuantos.d} ${cuantos.d === 1 ? 'descartada' : 'descartadas'}` : ''].filter(Boolean);
+  const caja = el('div', { class: 'tarjeta nov' }, el('p', {}, `${m.length === 1 ? '1 forma de ganar plata, mirada' : m.length + ' formas de ganar plata, miradas'}: ${conY(partes)}.`));
+  if (miradoAbierto) {
+    const lista = el('ul', { class: 'mirado' });
+    for (const x of m) lista.append(el('li', {}, el('span', { class: 'nom' }, x[0]), ' ', el('span', { class: 'ver ' + x[1] }, VEREDICTO[x[1]]), ...(typeof x[2] === 'string' && x[2] ? [el('span', { class: 'por' }, x[2])] : [])));
+    if (n.mirado_faltan > 0) lista.append(el('li', { class: 'gris' }, n.mirado_faltan === 1 ? 'Hay 1 más que no entró acá.' : `Hay ${n.mirado_faltan} más que no entraron acá.`));
+    caja.append(lista);
+  }
+  const b = el('button', { class: 'otro', type: 'button', 'aria-expanded': String(miradoAbierto) }, miradoAbierto ? 'Cerrar la lista' : m.length === 1 ? 'Ver cuál es' : `Ver las ${m.length} formas`);
+  b.addEventListener('click', () => { if (Date.now() - miradoToque < 700) return; miradoToque = Date.now(); miradoAbierto = !miradoAbierto; pintarNovedades(); });
+  caja.append(b);
+  return caja;
+}
+function seccionesNuevas(n) {
+  if (!n) return [];
+  const out = [], c = n.camino, p = n.papel;
+  const camino = c && typeof c === 'object' && typeof c.nombre === 'string' && c.nombre ? tarjetaCamino(c) : null;
+  if (camino) out.push(el('h2', {}, 'Lo nuevo: ' + c.nombre), camino);
+  if (p && typeof p === 'object' && p.n > 0) out.push(el('h2', {}, 'En prueba, sin plata'), tarjetaPapel(p));
+  const mirado = Array.isArray(n.mirado) ? tarjetaMirado(n) : null;
+  if (mirado) out.push(el('h2', {}, 'Lo que se fue mirando'), mirado);
+  const viejo = deCuando();
+  if (out.length && viejo) out.splice(1, 0, el('p', { class: 'viejo' }, viejo));   // debajo del primer título
+  return out;
+}
+const tocaArriba = el('div', {}), tocaAbajo = el('div', {}), nuevo = el('div', {});
+// Si no le toca nada, se dice en una línea, en el lugar de «Te toca» (27/11). Sólo cuando es cierto y recién dicho: lo
+// acaba de decir la PC (no es lo guardado en el teléfono), el archivo de las rondas está (n.t) y vino sin «toca», y
+// ninguna luz está en rojo (ahí lo que manda es lo que dice esa luz). Si no se sabe, no se dice nada.
+const nadaQueHacer = (n) => !!n && N.fresco && n.t > 0 && n.toca == null && !['motor', 'pc', 'claude'].some((k) => L[k] && L[k].tipo === 'alto');
+function pintarNovedades() {
+  const n = N.dato, t = n && n.toca && typeof n.toca === 'object' && typeof n.toca.que === 'string' && n.toca.que ? tarjetaToca(n) : null;
+  const arriba = C.paso !== 'confirmar' && C.paso !== 'esperando' && !hayQueFrenarEnLaBolsa();
+  const nada = !t && arriba && nadaQueHacer(n) ? el('p', { class: 'nadatoca' }, '✔ No te toca hacer nada ahora.') : null;
+  tocaArriba.replaceChildren(...(t && arriba ? [t] : nada ? [nada] : []));
+  tocaAbajo.replaceChildren(...(t && !arriba ? [t] : []));
+  nuevo.replaceChildren(...seccionesNuevas(n));
+  acomodarToca();
+}
+// «FRENAR TODO» NO SE PIERDE POR SUMAR «TE TOCA» (lo de siempre no se rompe). Con la letra del teléfono muy grande, o en
+// un teléfono chico, la tarjeta de arriba empujaría «Frenar todo» fuera de la primera pantalla. Ahí la tarjeta va justo
+// debajo de él: frenar sigue a la vista sin bajar con el dedo, y «Te toca» es lo que sigue. Se mide una sola vez por
+// cada tarjeta, letra y ancho (no en cada actualización), para que no cambie de lugar sola mientras se la lee.
+const lugarToca = { clave: '', abajo: false };
+function acomodarToca() {
+  const t = tocaArriba.firstElementChild; if (!t || !t.classList.contains('tetoca')) return;
+  const b = control.querySelector('button.frenito'), alto = window.innerHeight;
+  if (!b || !b.firstElementChild || !(alto > 0)) return;   // el botón todavía no se dibujó: pintarControl llama de nuevo al final
+  const clave = [t.textContent, U, window.innerWidth, C.paso].join('|');
+  if (lugarToca.clave !== clave) { lugarToca.clave = clave; lugarToca.abajo = b.firstElementChild.getBoundingClientRect().bottom + window.scrollY > alto; }
+  if (lugarToca.abajo) tocaAbajo.replaceChildren(t);
 }
 
 // ---------- el sonido: una campanita cuando la ganancia de hoy llega a un dólar más ----------
@@ -615,7 +827,8 @@ function cuandoVence(hhmm) { return (String(hhmm) <= hora(Date.now()) ? 'mañana
 function queHace(ordenes) {
   const nombre = (m) => String(m).split(':').pop(), porM = new Map();
   for (const o of ordenes) { const m = nombre(o.coin); if (!porM.has(m)) porM.set(m, []); porM.get(m).push(o); }
-  const progs = C.pc === 'contesta' && C.r ? (C.r.programas || []) : [];
+  // 27/11: lo que opera en otro lugar («lugar») no va acá: sus órdenes no están en esta bolsa. Se ve en «Lo nuevo».
+  const progs = (C.pc === 'contesta' && C.r ? (C.r.programas || []) : []).filter((p) => !p.lugar);
   for (const p of progs) if (!porM.has(nombre(p.m))) porM.set(nombre(p.m), []);
   const renglones = [];
   for (const [m, os] of porM) {
@@ -676,7 +889,7 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   const porMercado = new Map(); for (const o of nuestras) if (!o.isTrigger) porMercado.set(o.coin, (porMercado.get(o.coin) || 0) + 1);
   const demasiadas = [...porMercado.values()].some((n) => n > ORDENES_MAX);
   // Cuántos mercados tienen órdenes y cuántos esperan a su prueba en papel (lo dice la PC cuando contesta).
-  const progsPC = C.pc === 'contesta' && C.r ? (C.r.programas || []) : [], esperan = progsPC.filter((x) => x.espera === 'papel').length;
+  const progsPC = (C.pc === 'contesta' && C.r ? (C.r.programas || []) : []).filter((x) => !x.lugar), esperan = progsPC.filter((x) => x.espera === 'papel').length;
 
   // El semáforo dice siempre si hay algo para hacer (regla de diseño 1: si lo que toca es esperar, la pantalla lo dice).
   let tipo, corto, grande, chico, tranqui = false;
@@ -713,8 +926,11 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   );
   pintarSonido();
   grafAhora = { dias, hoy: hoyDia, abierta, cuenta };
-  app.replaceChildren(luces, luzdet, control, tarjetas, ...(queHace(nuestras) || []), el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
+  // 27/11: «Te toca» arriba de todo (o debajo de los botones de frenar, cuando lo primero es frenar) y, después de «Qué
+  // está haciendo», lo nuevo: el camino del lugar nuevo, la prueba en papel y lo que se fue mirando.
+  app.replaceChildren(tocaArriba, luces, luzdet, control, tocaAbajo, tarjetas, ...(queHace(nuestras) || []), nuevo, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
   pintarLuces();
+  pintarNovedades();   // «No te toca hacer nada» depende de la luz del motor, que se acaba de decidir
 }
 function pintarError(e) {
   const viejo = ultimoBien ? ` Lo último que leí fue a las ${hora(ultimoBien)}.` : '';
@@ -722,15 +938,17 @@ function pintarError(e) {
   L.motor = pideEsperar
     ? { tipo: 'nada', corto: 'En espera', titulo: 'La bolsa pidió esperar', texto: [`Hay muchas lecturas juntas desde esta conexión. Pruebo de nuevo solo a las ${hora(esperaHasta)}.${viejo} El programa en la PC sigue igual.`], atencion: true }
     : { tipo: 'nada', corto: 'Sin leer', titulo: 'No puedo leer la cuenta', texto: [`El celu no llega a Hyperliquid (${e.message}). Pruebo de nuevo solo.${viejo} El programa en la PC sigue igual.`], atencion: true };
-  if (app.firstChild !== luces) app.replaceChildren(luces, luzdet, control);   // si ya había tarjetas, quedan: sólo cambia la luz
+  if (app.firstChild !== tocaArriba) app.replaceChildren(tocaArriba, luces, luzdet, control, tocaAbajo, nuevo);   // si ya había tarjetas, quedan: sólo cambia la luz
   pintarLuces();
+  pintarNovedades();
 }
 function arrancar() {
   U = medirLetra();
   const cuenta = leerCuenta();
   if (!cuenta) { pedirCuenta(); return; }
   L.motor = { tipo: 'nada', corto: 'Leyendo', titulo: 'Leyendo la cuenta…', texto: [] }; L.abierta = null;
-  app.replaceChildren(luces, luzdet, control); pintarLuces();
+  cargarNovedades();   // lo último que dijo la PC, guardado en el teléfono: se ve enseguida, con su hora
+  app.replaceChildren(tocaArriba, luces, luzdet, control, tocaAbajo, nuevo); pintarLuces(); pintarNovedades();
   fillsMem = null; ultimoDato = null;
   ordenesT = 0; ordenesMem = [];
   clearInterval(timer); actualizar(cuenta); timer = setInterval(() => actualizar(cuenta), CADA_MS);
