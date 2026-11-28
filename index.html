@@ -43,15 +43,13 @@ html { font-size: 106.25%; -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--fondo); color: var(--texto); font: var(--f17)/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 main { max-width: 560px; margin: 0 auto; padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
 h1 { font-size: var(--f15); font-weight: 600; color: var(--suave); margin: 4px 0 12px; letter-spacing: .02em; }
-/* LAS LUCES (24/11/2026, ella: «el mega botón "operando", que sea sólo un botón pequeño verde, idem pc y claude»): un botón
-   chico por cosa —el motor, la PC y Claude—. Verde es «en orden». Tocás uno y abre su detalle; lo rojo se abre solo.
-   La zona que responde mide 56 (regla de diseño 4): el botón es transparente y lo que se ve es la píldora de adentro. */
-.luces { display: flex; flex-wrap: wrap; gap: 0 6px; margin: -8px 0 2px; }
-button.luz { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; min-width: 56px; padding: 0; border: 0; background: none; font: inherit; color: inherit; }
-button.luz > span { display: inline-flex; align-items: center; min-height: calc(34px * var(--u)); padding: 4px 14px; border: 2px solid; border-radius: 999px; font-size: var(--f15); font-weight: 700; line-height: 1.2; white-space: nowrap; }
-button.luz[aria-expanded="true"] > span { box-shadow: 0 0 0 3px var(--borde); }
-button.luz:active { box-shadow: none; }
-button.luz:active > span { box-shadow: inset 0 0 0 4px rgba(127, 127, 127, .55); }
+/* EL ESTADO, EN UNA LÍNEA (28/11/2026, ella: «Está muy compleja la página del Motor»). En lugar de las tres luces (el motor,
+   la PC y Claude): si todo anda, una línea («✔ Todo anda. No te toca nada.»); si algo falla, una caja por cada cosa que
+   falla, con qué pasa y qué hacer. Lo que decían las luces abiertas está en «Ver más detalle». */
+.estado { margin: 0 0 10px; }
+.estado p.bien { font-size: var(--f17); font-weight: 600; line-height: 1.3; margin: 0 2px; overflow-wrap: anywhere; }
+.estado p.bien.gris { color: var(--suave); font-weight: 400; }
+.estado .luzdet:last-child { margin-bottom: 0; }
 .luzdet { border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; border: 2px solid; }
 .luzdet .tit { font-size: var(--f17); font-weight: 700; line-height: 1.25; }
 .luzdet p { font-size: var(--f17); margin: 4px 0 0; color: var(--texto); }   /* lo que se lee de corrido va en la tinta del texto: 7 a 1 o más */
@@ -59,13 +57,11 @@ button.luz:active > span { box-shadow: inset 0 0 0 4px rgba(127, 127, 127, .55);
 .ojo { background: var(--ambar-fondo); color: var(--ambar); border-color: var(--ambar); }
 .alto { background: var(--rojo-fondo); color: var(--rojo); border-color: var(--rojo); }
 .nada { background: var(--gris-fondo); color: var(--texto); border-color: var(--borde); }
-.tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(132px * var(--u))), 1fr)); gap: 10px; margin-bottom: 14px; }
 .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px 14px; min-width: 0; }
 .tarjeta .rotulo { font-size: var(--f15); color: var(--suave); }
 .tarjeta .valor { font-size: var(--f24); font-weight: 700; margin-top: 2px; overflow-wrap: anywhere; }
 .tarjeta .nota { font-size: var(--f15); color: var(--suave); margin-top: 2px; }
 .tarjeta .nota.fuerte { color: var(--texto); font-weight: 600; }
-.ancha { grid-column: 1 / -1; }
 .ahora p { margin: 0; font-size: var(--f17); line-height: 1.4; }
 .ahora p + p { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); }
 .ahora b { font-weight: 700; }
@@ -76,6 +72,16 @@ ul.ops li { display: flex; justify-content: space-between; gap: 10px; padding: 1
 ul.ops li:first-child { border-top: 0; }
 ul.ops .que { color: var(--suave); }
 ul.ops .res { font-weight: 600; white-space: nowrap; }
+ul.ops + button.otro { margin-top: 10px; }
+/* QUÉ HACE CADA MERCADO (28/11): un renglón corto por mercado, el de Extended incluido. Lo que tiene plata en juego (órdenes
+   o una posición) va arriba y en tinta; lo que está en pausa, abajo y en gris. Lo largo, en «Ver más detalle». */
+ul.mercados li { flex-wrap: wrap; align-items: baseline; gap: 0 10px; font-size: var(--f17); line-height: 1.35; }
+ul.mercados .que { flex: 1 1 12em; color: var(--texto); min-width: 0; }   /* si no entra en un renglón, se parte adentro y «hasta…» queda arriba a la derecha */
+ul.mercados li.quieto .que { color: var(--suave); }
+ul.mercados .cuando { margin-left: auto; font-size: var(--f15); color: var(--suave); white-space: nowrap; }
+/* «Ver más detalle» (28/11): lo que sirve pero no hace falta mirar cada vez, plegado. */
+.masdet { margin-top: 18px; }
+.masdet > button.otro:first-child { margin-top: 0; }
 .pie { font-size: var(--f17); color: var(--suave); margin-top: 16px; }   /* son frases: 17 (regla de diseño 5, 26/11) */
 .pie p { margin: 6px 0; }
 form.cuenta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 16px; }
@@ -141,8 +147,8 @@ button.col[aria-pressed="true"] { border-color: var(--texto); background: var(--
 .hcol .menos { justify-content: flex-start; border-top: 1px solid var(--eje); }
 .hcol .barra { width: 70%; }
 .heje { display: grid; grid-template-columns: repeat(4, 1fr); margin: 2px 2px 0; font-size: var(--f15); color: var(--suave); }
-.sonido { margin-bottom: 14px; }
-.sonido p { margin: 0 2px; color: var(--suave); }
+.sonido { margin-top: 18px; }
+.sonido p { margin: 6px 2px 0; color: var(--suave); }
 /* LO NUEVO (27/11/2026; ella: «Todo tiene que ser visible para mí en la app… Que sea user friendly. Clara» y «Prioridad: lo
    que tengo que hacer yo ahora»). «Te toca» va arriba de todo cuando hay algo que le toca a ella: UNA sola cosa, en una
    frase. No es un botón y no lleva el color de actuar (ese sigue siendo de «Frenar todo»): se distingue por el marco de
@@ -154,8 +160,6 @@ button.col[aria-pressed="true"] { border-color: var(--texto); background: var(--
 .tetoca .como { font-size: var(--f17); margin-top: 6px; }
 .tetoca .sigue { font-size: var(--f17); color: var(--suave); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); }
 .tetoca .cuando { font-size: var(--f17); color: var(--suave); margin-top: 6px; }   /* es una frase: 17 */
-/* Si no le toca nada, se dice en una línea, en el mismo lugar (arriba de todo). */
-p.nadatoca { font-size: var(--f17); font-weight: 600; line-height: 1.3; margin: 0 2px 8px; overflow-wrap: anywhere; }
 .nov { overflow-wrap: anywhere; }
 .nov p { margin: 0; font-size: var(--f17); line-height: 1.4; }
 .nov p + p, .nov ul + p { margin-top: 8px; }
@@ -182,13 +186,16 @@ ul.mirado .nom { font-weight: 700; }
 ul.mirado .ver { font-size: var(--f15); font-weight: 700; white-space: nowrap; }
 ul.mirado .ver.v { color: var(--verde); } ul.mirado .ver.e { color: var(--ambar); } ul.mirado .ver.d { color: var(--suave); }
 ul.mirado .ver.p { color: var(--prueba); }   /* «en prueba con plata»: violeta, que no es el color de actuar ni el de ganar o perder */
-/* HOY CON PLATA Y EL RIESGO (27/11, mesa crítica): debajo de «Te toca», sobre el fondo de la página. Sólo plata de verdad:
-   ningún número de papel va acá. El número de hoy, más grande; lo demás, frases de 17. */
-.plata { margin: 0 2px 8px; overflow-wrap: anywhere; }
-.plata p { margin: 0; font-size: var(--f17); line-height: 1.35; }
-.plata p + p { margin-top: 4px; }
-.plata .hoy b { font-size: var(--f22); font-weight: 700; white-space: nowrap; }
-.plata .gris { color: var(--suave); }
+/* LOS TRES NÚMEROS (27/11 la mesa crítica; 28/11 más simple): la ganancia de hoy, la total y la plata. Cada número una sola
+   vez, grande, con lo suyo chico debajo (el objetivo, el tope y las comisiones; lo que queda; dónde está la plata). Sólo
+   plata de verdad: ningún número de papel va acá. */
+.plata { padding: 2px 14px; margin-bottom: 10px; overflow-wrap: anywhere; }
+.plata .fila { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; padding: 10px 0; border-top: 1px solid var(--borde); }
+.plata .fila:first-child { border-top: 0; }
+.plata .rot { font-size: var(--f17); }
+.plata .val { margin-left: auto; font-size: var(--f24); font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.plata .nota { flex: 1 0 100%; font-size: var(--f15); color: var(--suave); line-height: 1.35; margin-top: 2px; }
+.plata .nota.fuerte { color: var(--texto); font-weight: 600; }
 ul.mirado .por { display: block; margin-top: 2px; }
 /* LA CARA (27/11/2026, ella: «Ponele reconocimiento facial a: Claude, el motor y remote desktop»). Con la llave de acceso del
    teléfono (Face ID). Protegida, al abrir y al volver después de 5 minutos fuera se ve UNA sola pantalla: una frase y el
@@ -220,6 +227,9 @@ body.tapado main { visibility: hidden; }
 // una campanita cuando la ganancia de hoy llega a un dólar más.
 // 27/11/2026: LO NUEVO. Cuando la PC contesta «estado» manda además un bloque «novedades» (motor/celu-novedades.mjs): lo
 // que le toca a ella ahora, el camino del lugar nuevo, la prueba en papel y lo que se fue mirando. Más abajo, «LO NUEVO».
+// 28/11/2026: MÁS SIMPLE (ella: «Está muy compleja la página del Motor»). Arriba: «Te toca», el estado en una línea, tres
+// números (ganancia de hoy, ganancia total, plata), «Frenar todo» y un renglón por mercado. Abajo: el gráfico, las últimas 3
+// operaciones, «Ver más detalle» (todo lo demás, plegado: nada se borró salvo lo que se repetía), el sonido y la cara.
 const API = 'https://api.hyperliquid.xyz/info', NTFY = 'https://ntfy.sh', BOLSA = 'https://app.hyperliquid.xyz/trade';
 const DEXES = ['io', 'xyz'];
 // 26/11/2026: el tope total es −45 (desde el 25/11) y el de órdenes se cuenta POR MERCADO (el motor opera hasta 6 a la
@@ -279,25 +289,42 @@ function leerCanal() {
   return null;
 }
 const control = el('div', { class: 'control' });
-// ---------- las luces: tres botones chicos (el motor, la PC y Claude) ----------
-// 24/11/2026, a pedido de ella: en lugar del cartel grande y de la tarjeta de la PC, un botón chico por cosa. Verde es «en
-// orden». Tocás uno y abre su detalle (lo mismo que antes se leía en el cartel); lo rojo se abre solo. El color nunca va
-// solo: cada uno lleva su palabra y su signo.
-const luces = el('div', { class: 'luces' }), luzdet = el('div', {});
-const L = { motor: null, pc: null, claude: null, abierta: null };   // cada una: { tipo, corto, titulo, texto: [], tranqui, atencion }
+// ---------- EL ESTADO, EN UNA LÍNEA (28/11/2026) ----------
+// Ella: «Está muy compleja la página del Motor». Lo que decían las tres luces (el motor, la PC y Claude, 24/11) va en un solo
+// lugar, arriba: si todo anda, una línea —«✔ Todo anda. No te toca nada.»—; si algo falla, una caja por cada cosa que falla,
+// con qué pasa y qué hacer, lo rojo primero (antes, lo rojo se abría solo: ahora siempre está abierto). Lo que decían las
+// luces cuando todo andaba (qué opera desde el servidor y qué desde la PC) quedó en «Ver más detalle». El color nunca va solo:
+// cada caja lleva su signo y sus palabras.
+const estadoEl = el('div', { class: 'estado' });
+const L = { motor: null, pc: null, claude: null };   // cada una: { tipo, corto, titulo, texto: [], atencion }
 const SIGNO = { ok: '✔', ojo: '!', alto: '✖', nada: '…' };
-function pintarLuces() {
-  const cuales = ['motor', 'pc', 'claude'].filter((k) => L[k]);
-  const abierta = (k) => !!L[k].atencion || L.abierta === k;
-  luces.replaceChildren(...cuales.map((k) => {
-    const b = el('button', { class: 'luz', type: 'button', 'aria-expanded': String(abierta(k)) }, el('span', { class: L[k].tipo }, SIGNO[L[k].tipo] + ' ' + L[k].corto));
-    b.addEventListener('click', () => { L.abierta = L.abierta === k ? null : k; pintarLuces(); });
-    return b;
-  }));
-  luzdet.replaceChildren(...cuales.filter(abierta).map((k) => {
-    const x = L[k], mas = x.tranqui && !hayQueFrenarEnLaBolsa() ? ['No hace falta hacer nada.'] : [];
-    return el('div', { class: 'luzdet ' + x.tipo, role: 'status' }, el('div', { class: 'tit' }, x.titulo), ...x.texto.concat(mas).map((t) => el('p', {}, t)));
-  }));
+const GRAVE = { alto: 0, ojo: 1, nada: 2, ok: 3 };
+const punto = (s) => (/[.…!?]$/.test(s) ? s : s + '.');
+let nadaAhora = false;   // «No te toca nada»: lo decide pintarNovedades, sólo cuando es cierto y recién dicho
+// Lo que falla ahora: el motor (parado, cerca del tope, sin leer…), la PC, Claude, y el guardián de Extended si dejó de mirar.
+function problemas() {
+  const ps = [];
+  if (L.motor && (L.motor.tipo === 'alto' || L.motor.tipo === 'ojo' || L.motor.atencion)) ps.push(L.motor);
+  if (L.pc && L.pc.tipo === 'alto') ps.push(L.pc);
+  if (L.claude && L.claude.tipo === 'alto') ps.push(L.claude);
+  const x = extDe(N.dato);
+  if (N.fresco && x && !x.corre) ps.push({ tipo: 'alto', titulo: `El guardián de Extended no mira la cuenta desde ${cuandoEs(x.visto)}`, texto: [] });
+  return ps.sort((a, b) => GRAVE[a.tipo] - GRAVE[b.tipo]);
+}
+function pintarEstado() {
+  const ps = problemas(), canal = !!leerCanal(), m = L.motor;
+  if (!ps.length) {
+    let txt, gris = false;
+    if (!m || m.corto === 'Leyendo') { txt = '… Leyendo la cuenta…'; gris = true; }
+    else if (canal && C.pc !== 'contesta') { txt = '… Preguntándole a la PC…'; gris = true; }
+    else txt = '✔ ' + (canal ? 'Todo anda.' + (m.corto !== 'Operando' && m.corto !== 'En orden' ? ' ' + punto(m.titulo) : '') : punto(m.titulo)) + (nadaAhora ? ' No te toca nada.' : '');
+    estadoEl.replaceChildren(el('p', { class: 'bien' + (gris ? ' gris' : ''), role: 'status' }, txt));
+  } else {
+    const cajas = ps.map((x) => el('div', { class: 'luzdet ' + x.tipo, role: 'status' }, el('div', { class: 'tit' }, SIGNO[x.tipo] + ' ' + x.titulo), ...(x.texto || []).map((t) => el('p', {}, t))));
+    if (nadaAhora) cajas[cajas.length - 1].append(el('p', {}, 'No te toca nada.'));
+    estadoEl.replaceChildren(...cajas);
+  }
+  pintarMas();
 }
 const C = { pc: 'nada', r: null, cuando: 0, paso: 'listo', res: null, enviado: 0, confirmarDesde: 0 };   // pc: nada | preguntando | contesta | callada · paso: listo | confirmar | esperando | hecho | sin-respuesta | sin-enviar
 const sena = () => Math.random().toString(36).slice(2, 10);
@@ -346,13 +373,14 @@ const bolsaGrande = () => [enlaceBolsa(true), el('p', { class: 'chica como' }, C
 const hayQueFrenarEnLaBolsa = () => C.pc === 'callada' || C.paso === 'sin-respuesta' || C.paso === 'sin-enviar' || (C.paso === 'hecho' && !!C.res && !C.res.ok);
 function pintarControl() {
   const canal = leerCanal(); control.replaceChildren();
-  if (!canal) { L.pc = L.claude = null; pintarLuces(); pintarNovedades(); return; }
+  if (!canal) { L.pc = L.claude = null; pintarNovedades(); return; }
   // Un solo botón grande por momento (regla de diseño 1). Si la PC no contesta, o no pudo frenar, lo que hay que tocar es
   // «Frenar en la bolsa»; «Frenar todo» queda debajo, más chico, con las mismas palabras (deja el pedido para cuando vuelva).
   const fallo = C.paso === 'sin-respuesta' || C.paso === 'sin-enviar' || (C.paso === 'hecho' && C.res && !C.res.ok);
   const decide = C.paso === 'confirmar' || C.paso === 'esperando';
   const bolsaManda = !decide && (fallo || C.pc === 'callada');
-  // Las luces de la PC y de Claude (lo de Claude lo dice la PC cuando contesta).
+  // Lo que se sabe de la PC y de Claude (lo de Claude lo dice la PC cuando contesta). Si falla, va arriba, en el estado; si
+  // anda, en «Ver más detalle».
   if (C.pc === 'preguntando' || C.pc === 'nada') {
     L.pc = { tipo: 'nada', corto: 'PC', titulo: 'Preguntándole a la PC…', texto: [] };
     L.claude = { tipo: 'nada', corto: 'Claude', titulo: 'Claude: todavía no se sabe', texto: ['Lo dice la PC cuando contesta.'] };
@@ -369,8 +397,7 @@ function pintarControl() {
       ? { tipo: 'alto', corto: 'Claude', titulo: 'Claude sin sesión desde las ' + r.claude.desde, texto: ['No recibe pedidos hasta que alguien escriba /login en la PC. «Frenar todo» anda igual.'], atencion: true }
       : { tipo: 'ok', corto: 'Claude', titulo: 'Claude: con sesión', texto: [] };
   }
-  pintarLuces();
-  pintarNovedades();   // 27/11: «Te toca» y lo nuevo (dónde va «Te toca» depende de si hay que frenar)
+  pintarNovedades();   // «Te toca», los números y el estado (dónde van «Te toca» y los números depende de si hay que frenar)
   if (C.pc === 'callada' && decide) control.append(enLaBolsa());
   if (bolsaManda && !fallo) control.append(...bolsaGrande());
   if (C.paso === 'confirmar') {
@@ -400,8 +427,8 @@ function pintarControl() {
 //   · Si la PC contesta sin ese bloque (un control viejo), no inventa: no muestra nada de esto y borra lo guardado.
 // «Te toca» va arriba de todo. Sólo baja, debajo de los botones de frenar, en el momento de frenar o cuando hay que
 // frenar en la bolsa: ahí lo primero que hay que hacer es eso (regla de diseño 1: una sola cosa para hacer, y se ve cuál).
-// Si no le toca nada, en ese mismo lugar va una línea que lo dice («✔ No te toca hacer nada ahora.»), y sólo cuando la
-// PC lo acaba de decir y ninguna luz está en rojo (más abajo, nadaQueHacer).
+// Si no le toca nada, lo dice la línea del estado («✔ Todo anda. No te toca nada.»), y sólo cuando la PC lo acaba de decir
+// y nada está en rojo (más abajo, nadaQueHacer). 28/11: lo demás (el camino, el papel, lo mirado) está en «Ver más detalle».
 const CLAVE_NOV = 'novedades1';
 const N = { dato: null, recibido: 0, fresco: false };   // dato: el bloque · recibido: cuándo llegó · fresco: lo dijo la PC en la última pregunta
 const novBien = (n) => !!n && typeof n === 'object' && n.v === 2;   // v: 2 desde el 27/11 21:30 (la mesa crítica); un bloque v: 1 guardado en el teléfono no se usa
@@ -538,40 +565,43 @@ function seccionesNuevas(n) {
   if (!n) return [];
   const out = [], c = n.camino, p = n.papel;
   const camino = c && typeof c === 'object' && typeof c.nombre === 'string' && c.nombre ? tarjetaCamino(c, n.ext) : null;
-  if (camino) out.push(el('h2', {}, 'Lo nuevo: ' + c.nombre), camino);
+  if (camino) out.push(el('h2', {}, c.nombre + ', paso a paso'), camino);   // 28/11: ya no es «Lo nuevo» (Extended opera)
   if (p && typeof p === 'object' && p.n > 0) out.push(el('h2', {}, 'En prueba, sin plata'), tarjetaPapel(p));
   const mirado = Array.isArray(n.mirado) ? tarjetaMirado(n) : null;
   if (mirado) out.push(el('h2', {}, 'Lo que se fue mirando'), mirado);
-  const viejo = deCuando();
-  if (out.length && viejo) out.splice(1, 0, el('p', { class: 'viejo' }, viejo));   // debajo del primer título
   return out;
 }
-const tocaArriba = el('div', {}), tocaAbajo = el('div', {}), plataArriba = el('div', {}), plataAbajo = el('div', {}), nuevo = el('div', {});
-// Si no le toca nada, se dice en una línea, en el lugar de «Te toca» (27/11). Sólo cuando es cierto y recién dicho: lo
-// acaba de decir la PC (no es lo guardado en el teléfono), el archivo de las rondas está (n.t) y vino sin «toca», y
-// ninguna luz está en rojo (ahí lo que manda es lo que dice esa luz). Si no se sabe, no se dice nada.
-const nadaQueHacer = (n) => !!n && N.fresco && n.t > 0 && n.toca == null && !['motor', 'pc', 'claude'].some((k) => L[k] && L[k].tipo === 'alto');
+const tocaArriba = el('div', {}), tocaAbajo = el('div', {}), plataArriba = el('div', {}), plataAbajo = el('div', {});
+// «No te toca nada» se dice sólo cuando es cierto y recién dicho: lo acaba de decir la PC (no es lo guardado en el
+// teléfono), el archivo de las rondas está (n.t) y vino sin «toca», y nada está en rojo (ahí lo que manda es eso que falla).
+// Si no se sabe, no se dice.
+const nadaQueHacer = (n) => !!n && N.fresco && n.t > 0 && n.toca == null && !problemas().some((x) => x.tipo === 'alto');
 function pintarNovedades() {
   const n = N.dato, t = n && n.toca && typeof n.toca === 'object' && typeof n.toca.que === 'string' && n.toca.que ? tarjetaToca(n) : null;
   const arriba = C.paso !== 'confirmar' && C.paso !== 'esperando' && !hayQueFrenarEnLaBolsa();
-  const nada = !t && arriba && nadaQueHacer(n) ? el('p', { class: 'nadatoca' }, '✔ No te toca hacer nada ahora.') : null;
+  nadaAhora = !t && arriba && nadaQueHacer(n);
   const plata = bloquePlata();
-  tocaArriba.replaceChildren(...(t && arriba ? [t] : nada ? [nada] : []));
+  tocaArriba.replaceChildren(...(t && arriba ? [t] : []));
   tocaAbajo.replaceChildren(...(t && !arriba ? [t] : []));
   plataArriba.replaceChildren(...(plata && arriba ? [plata] : []));
   plataAbajo.replaceChildren(...(plata && !arriba ? [plata] : []));
-  nuevo.replaceChildren(...seccionesNuevas(n));
+  pintarMercados();   // el renglón de Extended sale de lo que dice la PC
+  pintarEstado();     // y «Ver más detalle»
   acomodarToca();
 }
-// ---------- HOY CON PLATA Y EL RIESGO (27/11, la mesa crítica: «Te toca», «Hoy con plata» y el riesgo, en ese orden) ----------
-// Sólo plata de verdad, los dos lugares sumados: Hyperliquid lo lee la página; Extended lo dice la PC, y sale de lo que
-// vale la cuenta según su guardián (n.ext). Ningún número de papel va acá. Cuatro renglones: lo de hoy contra el objetivo;
-// lo más que puede perder hoy y cuánto va en total contra el tope; cuánta plata hay en cada lugar; y las comisiones de hoy.
-let plataHL = null;   // lo de Hyperliquid, que calcula pintar(): { dia, total, saldo, fee }
+// ---------- LOS TRES NÚMEROS: GANANCIA DE HOY, GANANCIA TOTAL Y PLATA ----------
+// 27/11 (la mesa crítica): sólo plata de verdad, con el objetivo y el riesgo a la vista. 28/11 (ella: «Está muy compleja la
+// página del Motor»): lo que decían cuatro renglones de texto arriba y tres tarjetas abajo —lo mismo, dos veces— va en tres
+// números, cada uno una sola vez, con lo suyo chico debajo. Los dos lugares sumados: Hyperliquid lo lee la página; Extended
+// lo dice la PC, de lo que vale la cuenta según su guardián (n.ext). Ningún número de papel va acá.
+let plataHL = null;   // lo de Hyperliquid, que calcula pintar(): { dia, total, saldo, fee, dolar, completo }
+function extDe(n) { return n && n.ext && typeof n.ext === 'object' && typeof n.ext.vale === 'number' ? n.ext : null; }
+const dos = (x) => x.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const redondo = (x) => (Math.abs(x - Math.round(x)) < 0.005 ? String(Math.round(x)) : dos(x));   // los topes: «10», o «8,47» si queda menos
+const EXT = 'Extended';   // la cuenta que mira el guardián (n.ext) y los programas de n.camino.opera son de Extended (D:/motor/extended)
 function bloquePlata() {
   if (!plataHL) return null;
-  const n = N.dato, x = n && n.ext && typeof n.ext === 'object' && typeof n.ext.vale === 'number' ? n.ext : null;
-  const lugar = (n && n.camino && typeof n.camino.nombre === 'string' && n.camino.nombre) || 'Extended';
+  const n = N.dato, x = extDe(n);
   // Si el guardián de ese lugar todavía no dice nada, vale la plata que anotó la conversación (y se dice cómo está).
   const anotada = !x && n && Array.isArray(n.plata) ? n.plata.filter((p) => Array.isArray(p) && typeof p[0] === 'string' && p[0] && typeof p[1] === 'number') : [];
   // Lo que lleva Extended cuenta como «de hoy» sólo si su base se tomó hoy; si es de otro día, se dice y no se suma.
@@ -580,16 +610,103 @@ function bloquePlata() {
   const opera = n && n.camino && Array.isArray(n.camino.opera) ? n.camino.opera : [];
   const enJuego = !!x && (x.ordenes > 0 || !!x.pos || opera.some((o) => o && o.corre && !o.quieto && o.usd > 0));
   const viejo = x && (!N.fresco || !x.corre) ? ` (dato de ${cuandoEs(x.visto)})` : '';
-  const caja = el('section', { class: 'plata', 'aria-label': 'Hoy con plata' });
-  caja.append(el('p', { class: 'hoy' }, 'Hoy con plata: ', el('b', { class: clase(hoy) }, usd(hoy)), ` (el objetivo es ${OBJETIVO_DIA} por día).` + (lleva != null && !deHoy ? ` Sin contar ${lugar}: su cuenta se mide desde ${x.desde > 0 ? cuandoEs(x.desde) : 'otro día'}.` : '')));
-  // Lo más que se puede perder hoy: el tope del día, salvo que lo que queda del tope total sea menos. Lo de Extended tiene su
-  // propio tope (el del programa) y se dice aparte. «Quedan»: lo que falta para el tope total, los dos lugares sumados.
+  // El tope de hoy: el del día, salvo que lo que queda del tope total sea menos. Lo de Extended tiene su propio tope (el del
+  // programa) y se dice aparte. «Quedan»: lo que falta para el tope total, los dos lugares sumados.
   const quedan = Math.max(0, TOPE_TOTAL + Math.min(0, total)), maxHL = Math.max(0, Math.min(TOPE_DIA, Math.max(0, -plataHL.dia) + quedan));
-  caja.append(el('p', {}, `Lo más que se puede perder hoy: ${plano(maxHL)}` + (enJuego && x.tope > 0 ? ` en Hyperliquid y ${plano(x.tope)} en ${lugar}` : '') + `. En total va ${usd(total)} de −${TOPE_TOTAL}: quedan ${plano(quedan)}.`));
-  caja.append(el('p', {}, `Plata: ${plano(plataHL.saldo)} en Hyperliquid` + (x ? ` y ${plano(x.vale)} en ${lugar}${viejo}` : anotada.map((p) => ` y ${plano(p[1])} en ${p[0]}` + (typeof p[2] === 'string' && p[2] ? ` (${p[2]})` : '')).join('')) + '.'));
-  const feeExt = n && n.ext && typeof n.ext === 'object' && typeof n.ext.fee === 'number' ? n.ext.fee : null;
-  caja.append(el('p', { class: 'gris' }, `Comisiones pagadas hoy: ${plano(Math.max(0, plataHL.fee))} en Hyperliquid` + (feeExt != null ? ` y ${plano(Math.max(0, feeExt))} en ${lugar}` : '') + '.' + (plataHL.fee < -0.005 ? ` Hyperliquid te devolvió ${plano(-plataHL.fee)}.` : '')));
-  return caja;
+  const feeExt = n && n.ext && typeof n.ext === 'object' && typeof n.ext.fee === 'number' ? Math.max(0, n.ext.fee) : 0;
+  const d = plataHL.dolar;
+  const fila = (rot, val, cls, notas) => el('div', { class: 'fila' }, el('span', { class: 'rot' }, rot), el('span', { class: 'val ' + cls }, val), ...notas.filter(Boolean).map(([t, fuerte]) => el('div', { class: 'nota' + (fuerte ? ' fuerte' : '') }, t)));
+  return el('section', { class: 'tarjeta plata', 'aria-label': 'La plata' },
+    fila('Ganancia de hoy', usd(hoy), clase(hoy), [
+      [`objetivo +${OBJETIVO_DIA} · tope −${redondo(maxHL)}` + (enJuego && x.tope > 0 ? ` (y −${redondo(x.tope)} en ${EXT})` : '') + ` · comisiones ${dos(Math.max(0, plataHL.fee) + feeExt)}`],
+      plataHL.fee < -0.005 ? [`Hyperliquid te devolvió ${dos(-plataHL.fee)}`] : null,
+      lleva != null && !deHoy ? [`sin contar ${EXT}: su cuenta se mide desde ${x.desde > 0 ? cuandoEs(x.desde) : 'otro día'}`] : null,
+      d && d.nivel > 0 ? [`🔔 Llegó a +${d.nivel} USD a las ${hora(d.cuando)}`, true] : null,   // la campanita, escrita (el sonido nunca es la única señal)
+    ]),
+    fila('Ganancia total', usd(total), clase(total), [[`tope −${TOPE_TOTAL} · quedan ${dos(quedan)}`], plataHL.completo ? null : ['faltan operaciones viejas: la bolsa no las dio todas']]),
+    fila('Plata', plano(plataHL.saldo + (x ? x.vale : anotada.reduce((s, p) => s + p[1], 0))), '', [[`Hyperliquid ${dos(plataHL.saldo)}` + (x ? ` · ${EXT} ${dos(x.vale)}${viejo}` : anotada.map((p) => ` · ${p[0]} ${dos(p[1])}` + (typeof p[2] === 'string' && p[2] ? ` (${p[2]})` : '')).join(''))]]),
+  );
+}
+
+// ---------- QUÉ HACE CADA MERCADO (28/11/2026): un renglón corto por mercado ----------
+// Lo que antes era un párrafo por mercado («1 compra y 1 venta de 25 USD, a 0,4 % del precio, esperando un salto para entrar.
+// Freno puesto en la bolsa. Así hasta mañana a las 10:45; después queda en pausa.») queda entero en «Ver más detalle». Acá,
+// qué hace y hasta cuándo. La posición abierta va en el renglón de su mercado (antes, la tarjeta «Posición ahora»), y Extended
+// entra como un renglón más (antes, la sección «Lo nuevo: Extended»). Lo que tiene plata en juego va arriba.
+const mercadosEl = el('div', {});
+const hastaCorto = (hhmm) => (String(hhmm) <= hora(Date.now()) ? 'mañana ' : '') + hhmm;   // la PC manda «18:45»: si hoy ya pasó, es mañana
+function cuandoCorto(t) {   // «15:59», «ayer 15:59», «mañana 10:45», «el 25/11 15:59»
+  const d = diaDe(t), ahora = Date.now();
+  return (d === diaDe(ahora) ? '' : d === diaDe(ahora - 86400e3) ? 'ayer ' : d === diaDe(ahora + 86400e3) ? 'mañana ' : `el ${+d.slice(8)}/${+d.slice(5, 7)} `) + hora(t);
+}
+const QUIETO_CORTO = { frenado: 'frenado', 'tope-total': 'paró: tocó su tope total', 'tope-dia': 'paró por hoy: tocó su tope', pausa: 'en pausa por el freno', 'sin-tamano': 'en pausa', quieto: 'quieto' };
+function pintarMercados() {
+  const dato = ultimoDato, filas = [], nombre = (m) => String(m).split(':').pop();
+  if (dato) {
+    const porM = new Map(), de = (m) => { if (!porM.has(m)) porM.set(m, { os: [], pos: null }); return porM.get(m); };
+    for (const o of dato.ordenes) de(nombre(o.coin)).os.push(o);
+    for (const a of dato.perp.assetPositions || []) if (a && a.position && +a.position.szi !== 0) de(nombre(a.position.coin)).pos = a.position;
+    // Lo que opera en otro lugar («lugar») no va acá: sus órdenes no están en esta bolsa. Va con su propio renglón, abajo.
+    const progs = (C.pc === 'contesta' && C.r ? (C.r.programas || []) : []).filter((p) => !p.lugar);
+    for (const p of progs) de(nombre(p.m));
+    for (const [m, x] of porM) {
+      const ent = x.os.filter((o) => !o.isTrigger && !o.reduceOnly), sale = x.os.some((o) => !o.isTrigger && o.reduceOnly), p = progs.find((q) => nombre(q.m) === m);
+      let que, activo = true, cuando = '';
+      if (x.pos) que = `con posición: ${+x.pos.szi > 0 ? 'compró' : 'vendió'} ${plano(Math.abs(+x.pos.positionValue))}, va ${usd(+x.pos.unrealizedPnl)}` + (sale ? '; está saliendo' : '');
+      else if (sale) que = 'está saliendo de una posición';
+      else if (ent.length) que = 'esperando para entrar';
+      else { activo = false; que = p && !p.usd ? 'en pausa' : p && p.espera === 'papel' ? 'en pausa: su papel pierde' : 'sin órdenes por ahora'; }
+      if (p && p.parar) que += ' · frenado';
+      if (p && p.vence && (activo ? p.usd : !p.usd)) cuando = 'hasta ' + hastaCorto(p.vence);
+      filas.push({ m, que, cuando, activo });
+    }
+  }
+  // Extended: lo que dice la PC de sus programas (n.camino.opera) y de la cuenta (n.ext). Un programa apagado hace más de dos
+  // horas no va acá (sí en «Ver más detalle»).
+  const n = N.dato, x = extDe(n), opera = n && n.camino && Array.isArray(n.camino.opera) ? n.camino.opera.filter((o) => o && typeof o === 'object' && o.m != null) : [];
+  let posDicha = false;
+  for (const o of opera) {
+    if (!o.corre && !(o.visto > 0 && Date.now() - o.visto < 2 * 3600e3)) continue;
+    let que, activo = false, cuando = '';
+    if (!o.corre) que = 'apagado' + (o.visto > 0 ? ' desde ' + cuandoCorto(o.visto) : '');
+    else if (o.quieto) { que = QUIETO_CORTO[o.quieto] || QUIETO_CORTO.quieto; if (o.quieto === 'pausa' && o.hasta) cuando = 'hasta ' + o.hasta; }
+    else if (x && x.pos && !posDicha) { que = 'con una posición abierta'; activo = posDicha = true; }
+    else if (o.usd > 0) { que = o.puestas > 0 ? 'esperando para entrar' : 'operando, sin órdenes ahora'; activo = true; if (o.vence > Date.now()) cuando = 'hasta ' + cuandoCorto(o.vence); }
+    else que = 'en pausa';
+    if (!N.fresco && N.recibido) cuando = 'dato de ' + cuandoCorto(N.recibido);
+    filas.push({ m: String(o.m) + ' (' + EXT + ')', que, cuando, activo });
+  }
+  if (!filas.length) { mercadosEl.replaceChildren(); return; }
+  filas.sort((a, b) => b.activo - a.activo);   // lo que tiene plata en juego, arriba (en el orden de siempre)
+  const lista = el('ul', { class: 'ops mercados' });
+  for (const f of filas) lista.append(el('li', { class: f.activo ? 'activo' : 'quieto' }, el('span', { class: 'que' }, el('b', {}, f.m), ' · ' + f.que), ...(f.cuando ? [el('span', { class: 'cuando' }, f.cuando)] : [])));
+  mercadosEl.replaceChildren(el('h2', {}, 'Qué hace cada mercado'), lista);
+}
+
+// ---------- «VER MÁS DETALLE» (28/11/2026) ----------
+// Lo que sirve pero no hace falta mirar cada vez, plegado detrás de un botón con palabras: el lugar nuevo paso a paso, la
+// prueba en papel, lo que se fue mirando, lo que dicen el motor, la PC y Claude (qué opera desde el servidor y qué desde la
+// PC), cada mercado con todo (cuántas órdenes, a qué distancia, el freno, qué pasa al vencer) y cómo se cuenta. Nada de esto
+// se borró: sólo se bajó. Plegado al abrir la página; se abre y se cierra con el mismo botón.
+const mas = el('section', { class: 'masdet', 'aria-label': 'Más detalle' });
+let masAbierto = false, masToque = 0, primerDiaMem = null;
+function pintarMas() {
+  const b = el('button', { class: 'otro', type: 'button', 'aria-expanded': String(masAbierto) }, masAbierto ? 'Ver menos detalle' : 'Ver más detalle');
+  b.addEventListener('click', () => { if (Date.now() - masToque < 700) return; masToque = Date.now(); masAbierto = !masAbierto; pintarMas(); });   // un segundo toque seguido no lo vuelve a cerrar
+  if (!masAbierto) { mas.replaceChildren(b); return; }
+  const out = [b], viejo = deCuando();
+  if (viejo) out.push(el('p', { class: 'viejo' }, viejo));
+  out.push(...seccionesNuevas(N.dato));
+  const partes = [L.motor, L.pc, L.claude].filter((x) => x && x.titulo);
+  if (partes.length) out.push(el('h2', {}, 'El motor, la PC y Claude'), el('div', { class: 'tarjeta nov partes' }, ...partes.map((x) => el('p', {}, el('b', {}, punto(x.titulo)), ...(x.texto || []).map((t) => ' ' + t)))));
+  const cada = ultimoDato ? queHace(ultimoDato.ordenes) : null;
+  if (cada) out.push(el('h2', {}, 'Cada mercado, con todo'), cada);
+  const como = [`Topes: −${TOPE_DIA} USD por día y −${TOPE_TOTAL} en total. Si los toca, para solo.`, 'El día va de 0 a 24 h de Buenos Aires. La ganancia de cada operación ya tiene la comisión descontada.'];
+  if (primerDiaMem) como.push(`La ganancia total cuenta desde el ${+primerDiaMem.slice(8)}/${+primerDiaMem.slice(5, 7)}.`);
+  como.push('La página se actualiza sola una vez por minuto.');
+  if (CARA.puede !== false) como.push('Tu cara: ' + CARA_HONESTO);
+  out.push(el('h2', {}, 'Cómo funciona'), el('div', { class: 'tarjeta nov' }, ...como.map((t) => el('p', {}, t))));
+  mas.replaceChildren(...out);
 }
 // «FRENAR TODO» NO SE PIERDE POR LO QUE SE SUMA ARRIBA (lo de siempre no se rompe). Con la letra del teléfono muy grande,
 // o en un teléfono chico, lo de arriba empujaría «Frenar todo» fuera de la primera pantalla. Ahí baja primero «Hoy con
@@ -650,7 +767,7 @@ function pintarSonido() {
     sonidoQuiere = true; try { localStorage.setItem('sonido', 'si'); } catch {}
     if (await despertarSonido()) sonar();   // al activarlo se escucha cómo suena
   });
-  sonido.replaceChildren(b, el('p', { class: 'chica' }, prendido ? 'Suena una campanita cuando la ganancia de hoy llega a un dólar más.' : 'Una campanita cuando la ganancia de hoy llega a un dólar más.'));
+  sonido.replaceChildren(b, el('p', { class: 'chica' }, 'Suena una campanita cuando hoy sube un dólar más.'));
 }
 // Cualquier toque fuera de los botones de frenar despierta el sonido (el navegador lo pide) y hace sonar lo que quedó pendiente.
 document.addEventListener('click', async (e) => {
@@ -888,7 +1005,7 @@ function grafico(dias, hoy, abiertaHoy, cuenta) {
   }
   cols.setAttribute('role', 'group');
   cols.setAttribute('aria-label', 'Ganancia por día, en dólares. ' + ver.map((x) => `${diaLargo(x.d)}: ${usd(x.g)}`).join('. ') + '.');
-  caja.append(el('p', { class: 'sub' }, 'En USD, ya sin la comisión. Arriba de la raya, lo ganado; abajo, lo perdido.'), cols);
+  caja.append(el('p', { class: 'sub' }, 'En USD, ya sin la comisión.'), cols);
   const elegida = ver.find((x) => x.d === diaElegido);
   caja.append(elegida ? panelDetalle(cuenta, elegida, hoy, abiertaHoy) : el('p', { class: 'toca' }, '👆 Tocá un día para ver su detalle.'));
   return caja;
@@ -935,7 +1052,7 @@ function queHace(ordenes) {
     renglones.push(el('p', {}, el('b', {}, m + ' · '), partes.join(' ')));
   }
   if (!renglones.length) return null;
-  return [el('h2', {}, 'Qué está haciendo'), el('div', { class: 'tarjeta ahora' }, ...renglones)];
+  return el('div', { class: 'tarjeta ahora' }, ...renglones);   // 28/11: va en «Ver más detalle», «Cada mercado, con todo»
 }
 function pintar({ cuenta, perp, spot, ordenes, fills }) {
   if (CARA.cerrada) return;   // protegida con la cara: nada de datos hasta que se abre
@@ -964,8 +1081,8 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   const usdc = (spot.balances || []).find((b) => b.coin === 'USDC');
   const saldo = usdc ? +usdc.total : 0;
   const diaCon = dia + abierta, totalCon = total + abierta;
-  // 27/11: lo de Hyperliquid para «Hoy con plata» y el riesgo (arriba de todo). Las comisiones de hoy salen de las llenadas.
-  plataHL = { dia: diaCon, total: totalCon, saldo, fee: deHoy.reduce((t, f) => t + (+f.fee || 0), 0) };
+  // Lo de Hyperliquid para los tres números de arriba. Las comisiones de hoy salen de las llenadas.
+  plataHL = { dia: diaCon, total: totalCon, saldo, fee: deHoy.reduce((t, f) => t + (+f.fee || 0), 0), dolar, completo };
   const porMercado = new Map(); for (const o of nuestras) if (!o.isTrigger) porMercado.set(o.coin, (porMercado.get(o.coin) || 0) + 1);
   const demasiadas = [...porMercado.values()].some((n) => n > ORDENES_MAX);
   // Cuántos mercados tienen órdenes y cuántos esperan a su prueba en papel (lo dice la PC cuando contesta).
@@ -984,34 +1101,39 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   else { tipo = 'ok'; corto = 'En orden'; grande = 'En orden'; chico = `Hoy va ${usd(diaCon)}.`; tranqui = true; }
 
   L.motor = { tipo, corto, titulo: grande, texto: [chico], tranqui, atencion: tipo === 'alto' || tipo === 'nada' };
-  const t = (rot, val, nota, cls = '', ancha = false, extra = null) => el('div', { class: 'tarjeta' + (ancha ? ' ancha' : '') }, el('div', { class: 'rotulo' }, rot), el('div', { class: 'valor ' + cls }, val), ...(nota ? [el('div', { class: 'nota' }, nota)] : []), ...(extra ? [el('div', { class: 'nota fuerte' }, extra)] : []));
-  const primerDia = [...dias.keys()][0];
-  const tarjetas = el('div', { class: 'tarjetas' },
-    t('Ganancia de hoy', usd(diaCon), nDia === 1 ? '1 operación' : `${nDia} operaciones`, clase(diaCon), false, dolar.nivel > 0 ? `🔔 Llegó a +${dolar.nivel} USD a las ${hora(dolar.cuando)}` : null),
-    t('Ganancia total', usd(totalCon), !completo ? 'faltan operaciones viejas: la bolsa no las dio todas' : primerDia ? `desde el ${+primerDia.slice(8)}/${+primerDia.slice(5, 7)}` : 'desde que empezó', clase(totalCon)),
-    t('Plata en la cuenta', plano(saldo), 'dólares digitales (USDC)'),
-    t('Posición ahora', tam ? `${tam > 0 ? 'Compró' : 'Vendió'} ${plano(valorPos)}` : 'Ninguna', tam ? `resultado abierto ${usd(abierta)}` : 'todo cerrado'),
-    t('Última operación', ultima ? haceCuanto(ultima) : '—', (() => { const f = nuestras.filter((o) => o.isTrigger).length, o = nuestras.length - f; return (o === 1 ? '1 orden puesta' : `${o} órdenes puestas`) + (f ? ` y ${f === 1 ? '1 freno' : f + ' frenos'} en la bolsa` : ''); })(), '', true),
-  );
-  const lista = el('ul', { class: 'ops' });
-  if (!ult.length) lista.append(el('li', {}, el('span', { class: 'que' }, 'Sin operaciones todavía')));
-  for (const f of ult) {
-    const n = netoDe(f), monto = +f.px * +f.sz, donde = String(f.coin).split(':').pop();
-    lista.append(el('li', {}, el('span', { class: 'que' }, `${hora(f.time)} · ${f.side === 'B' ? 'compró' : 'vendió'} ${plano(monto)} en ${donde}`), el('span', { class: 'res ' + clase(n) }, usd(n))));
-  }
-  const pie = el('div', { class: 'pie' },
-    el('p', {}, `Actualizado a las ${hora(ultimoBien)}. Se actualiza solo una vez por minuto.`),
-    el('p', {}, `Topes: −${TOPE_DIA} USD por día y −${TOPE_TOTAL} en total. Si los toca, para solo.`),
-    el('p', {}, 'El día va de 0 a 24 h de Buenos Aires. La ganancia de cada operación ya tiene la comisión descontada.'),
-    caraPie,   // 27/11: «Proteger con tu cara» (o «Dejar de pedir la cara»), abajo de todo
-  );
+  // 28/11 (ella: «Está muy compleja la página del Motor»): las tarjetas de abajo («Ganancia de hoy», «Ganancia total», «Plata
+  // en la cuenta») repetían lo de arriba y se juntaron en los tres números; «Posición ahora» pasó al renglón de su mercado;
+  // «Última operación» repetía la primera de «Últimas operaciones» (que ahora dice el día si no es hoy) y cuántas órdenes hay
+  // (eso está en «Qué hace cada mercado»). Cuántas operaciones hubo hoy: tocando «hoy» en el gráfico.
+  primerDiaMem = [...dias.keys()][0] || null;
+  ultMem = ult; pintarOps();
   pintarSonido();
   grafAhora = { dias, hoy: hoyDia, abierta, cuenta };
-  // 27/11: «Te toca» arriba de todo (o debajo de los botones de frenar, cuando lo primero es frenar) y, después de «Qué
-  // está haciendo», lo nuevo: el camino del lugar nuevo, la prueba en papel y lo que se fue mirando.
-  app.replaceChildren(tocaArriba, plataArriba, luces, luzdet, control, tocaAbajo, plataAbajo,tarjetas, ...(queHace(nuestras) || []), nuevo, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
-  pintarLuces();
-  pintarNovedades();   // «No te toca hacer nada» depende de la luz del motor, que se acaba de decidir
+  // Arriba: «Te toca», el estado, los tres números, «Frenar todo» y qué hace cada mercado (con la letra grande o si hay que
+  // frenar, «Te toca» y los números bajan debajo de los botones de frenar). Abajo: el gráfico, las últimas operaciones, «Ver
+  // más detalle», el sonido y la cara.
+  app.replaceChildren(tocaArriba, estadoEl, plataArriba, control, tocaAbajo, plataAbajo, mercadosEl, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), opsEl, mas, sonido, caraPie, el('p', { class: 'pie' }, `Actualizado a las ${hora(ultimoBien)}.`));
+  pintarNovedades();   // «No te toca nada» depende del estado del motor, que se acaba de decidir
+}
+// Las últimas operaciones: 3 a la vista y, con un toque, las 10 (28/11; antes eran siempre 10).
+const opsEl = el('div', {});
+let ultMem = [], opsTodas = false, opsToque = 0;
+function pintarOps() {
+  const lista = el('ul', { class: 'ops ultimas' }), ver = ultMem.slice(0, opsTodas ? 10 : 3);
+  if (!ver.length) lista.append(el('li', {}, el('span', { class: 'que' }, 'Sin operaciones todavía')));
+  for (const f of ver) {
+    const n = netoDe(f), monto = +f.px * +f.sz, donde = String(f.coin).split(':').pop();
+    // La hora si es de hoy; «ayer 15:59»; y de antes, sólo el día («26/11»), para que entre en un renglón.
+    const d = diaDe(f.time), cuando = d === diaDe(Date.now()) ? hora(f.time) : d === diaDe(Date.now() - 86400e3) ? 'ayer ' + hora(f.time) : +d.slice(8) + '/' + +d.slice(5, 7);
+    lista.append(el('li', {}, el('span', { class: 'que' }, `${cuando} · ${f.side === 'B' ? 'compró' : 'vendió'} ${plano(monto)} en ${donde}`), el('span', { class: 'res ' + clase(n) }, usd(n))));
+  }
+  const partes = [el('h2', {}, 'Últimas operaciones'), lista];
+  if (ultMem.length > 3) {
+    const b = el('button', { class: 'otro', type: 'button', 'aria-expanded': String(opsTodas) }, opsTodas ? 'Ver sólo las 3 últimas' : `Ver las ${ultMem.length} últimas`);
+    b.addEventListener('click', () => { if (Date.now() - opsToque < 700) return; opsToque = Date.now(); opsTodas = !opsTodas; pintarOps(); });
+    partes.push(b);
+  }
+  opsEl.replaceChildren(...partes);
 }
 function pintarError(e) {
   if (CARA.cerrada) return;
@@ -1020,8 +1142,7 @@ function pintarError(e) {
   L.motor = pideEsperar
     ? { tipo: 'nada', corto: 'En espera', titulo: 'La bolsa pidió esperar', texto: [`Hay muchas lecturas juntas desde esta conexión. Pruebo de nuevo solo a las ${hora(esperaHasta)}.${viejo} El programa en la PC sigue igual.`], atencion: true }
     : { tipo: 'nada', corto: 'Sin leer', titulo: 'No puedo leer la cuenta', texto: [`El celu no llega a Hyperliquid (${e.message}). Pruebo de nuevo solo.${viejo} El programa en la PC sigue igual.`], atencion: true };
-  if (app.firstChild !== tocaArriba) app.replaceChildren(tocaArriba, plataArriba, luces, luzdet, control, tocaAbajo, plataAbajo,nuevo);   // si ya había tarjetas, quedan: sólo cambia la luz
-  pintarLuces();
+  if (app.firstChild !== tocaArriba) app.replaceChildren(tocaArriba, estadoEl, plataArriba, control, tocaAbajo, plataAbajo, mercadosEl, mas);   // si ya había números, quedan: sólo cambia el estado
   pintarNovedades();
 }
 // ---------- LA CARA: abrir la página con la llave de acceso del teléfono (27/11/2026) ----------
@@ -1112,11 +1233,13 @@ function pintarCaraPie() {
   const boton = (t, fn) => { const x = el('button', { class: 'otro', type: 'button' }, t); x.addEventListener('click', fn); return x; };
   let partes = [];
   if (CARA.ocupada) partes = [linea('Esperando tu cara…', true)];
-  else if (CARA.llave) partes = [linea(CARA.aviso || '🔒 Protegida con tu cara: la pide al abrir y al volver después de 5 minutos.', true), linea(CARA_HONESTO), boton('Dejar de pedir la cara', dejarLaCara)];
+  // 28/11: un botón y UNA línea. Lo que es y lo que no (CARA_HONESTO) quedó en «Ver más detalle», «Cómo funciona».
+  else if (CARA.llave) partes = [linea(CARA.aviso || '🔒 Protegida con tu cara: la pide al abrir y al volver después de 5 minutos.', true), boton('Dejar de pedir la cara', dejarLaCara)];
   else if (CARA.paso === 'probar') partes = [linea('La llave está creada. Falta probarla una vez con tu cara.', true), boton('Probar con tu cara', probarNueva)];
   else if (CARA.puede === false) partes = [linea('Este teléfono no deja proteger la página con tu cara: sigue como hoy.')];
-  else if (CARA.puede) partes = [...(CARA.aviso ? [linea(CARA.aviso, true)] : []), boton('Proteger con tu cara', protegerConCara), linea('Pide tu cara al abrir la página y al volver después de 5 minutos. ' + CARA_HONESTO)];
+  else if (CARA.puede) partes = [...(CARA.aviso ? [linea(CARA.aviso, true)] : []), boton('Proteger con tu cara', protegerConCara), linea('Pide tu cara al abrir y al volver después de 5 minutos.')];
   caraPie.replaceChildren(...partes);
+  pintarMas();   // «Cómo funciona» dice lo de la cara sólo si este teléfono puede usarla
 }
 function quedarProtegida(id) {
   const g = { id, t: Date.now() };
@@ -1169,9 +1292,9 @@ function arrancar() {
   U = medirLetra();
   const cuenta = leerCuenta();
   if (!cuenta) { pedirCuenta(); return; }
-  L.motor = { tipo: 'nada', corto: 'Leyendo', titulo: 'Leyendo la cuenta…', texto: [] }; L.abierta = null;
+  L.motor = { tipo: 'nada', corto: 'Leyendo', titulo: 'Leyendo la cuenta…', texto: [] };
   cargarNovedades();   // lo último que dijo la PC, guardado en el teléfono: se ve enseguida, con su hora
-  app.replaceChildren(tocaArriba, plataArriba, luces, luzdet, control, tocaAbajo, plataAbajo,nuevo); pintarLuces(); pintarNovedades();
+  app.replaceChildren(tocaArriba, estadoEl, plataArriba, control, tocaAbajo, plataAbajo, mercadosEl, mas); pintarNovedades();
   fillsMem = null; ultimoDato = null;
   ordenesT = 0; ordenesMem = [];
   clearInterval(timer); actualizar(cuenta); timer = setInterval(() => actualizar(cuenta), CADA_MS);
