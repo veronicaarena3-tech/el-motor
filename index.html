@@ -190,6 +190,19 @@ ul.mirado .ver.p { color: var(--prueba); }   /* «en prueba con plata»: violeta
 .plata .hoy b { font-size: var(--f22); font-weight: 700; white-space: nowrap; }
 .plata .gris { color: var(--suave); }
 ul.mirado .por { display: block; margin-top: 2px; }
+/* LA CARA (27/11/2026, ella: «Ponele reconocimiento facial a: Claude, el motor y remote desktop»). Con la llave de acceso del
+   teléfono (Face ID). Protegida, al abrir y al volver después de 5 minutos fuera se ve UNA sola pantalla: una frase y el
+   botón de 88 «Abrir con tu cara»; nada de datos atrás. Se prende y se saca abajo de todo, en el pie. */
+.cara { padding-top: 6px; overflow-wrap: anywhere; }
+.cara p { margin: 0 2px 14px; font-size: var(--f17); line-height: 1.4; }
+.cara p.tit { font-size: var(--f22); font-weight: 700; line-height: 1.25; }
+.cara p.mal { margin: 14px 2px 0; }
+.cara button.frenar { margin-top: 0; }
+.cara a.bolsa { margin-top: 14px; }
+.carapie { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--borde); }
+.carapie p.fuerte { color: var(--texto); font-weight: 600; }
+/* Protegida y fuera de la pantalla: lo de adentro se tapa (por si el teléfono saca una foto para la lista de apps). */
+body.tapado main { visibility: hidden; }
 </style>
 </head>
 <body>
@@ -249,6 +262,7 @@ async function pedir(body) {
 function inicioDelDia() { return inicioDe(diaDe(Date.now())); }
 
 function pedirCuenta() {
+  if (CARA.cerrada) return;   // protegida con la cara: nada se dibuja hasta que se abre
   app.replaceChildren();
   const input = el('input', { id: 'dir', inputmode: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: '0x…' });
   const f = el('form', { class: 'cuenta' }, el('label', { for: 'dir' }, 'Pegá la dirección de tu cuenta de Hyperliquid'), input, el('button', { type: 'submit' }, 'Ver mi cuenta'));
@@ -586,7 +600,7 @@ function acomodarToca() {
   const t = tocaArriba.querySelector('.tetoca'), p = plataArriba.firstElementChild;
   if (!t && !p) return;
   const b = control.querySelector('button.frenito'), alto = window.innerHeight;
-  if (!b || !b.firstElementChild || !(alto > 0)) return;   // el botón todavía no se dibujó: pintarControl llama de nuevo al final
+  if (!b || !b.isConnected || !b.firstElementChild || !(alto > 0)) return;   // sin dibujar (o tapado por la cara): no se mide   // el botón todavía no se dibujó: pintarControl llama de nuevo al final
   const fuera = () => b.firstElementChild.getBoundingClientRect().bottom + window.scrollY > alto;
   const clave = [t ? t.textContent : '', p ? p.childElementCount : 0, U, window.innerWidth, C.paso].join('|');
   if (lugarArriba.clave !== clave) {
@@ -640,7 +654,7 @@ function pintarSonido() {
 }
 // Cualquier toque fuera de los botones de frenar despierta el sonido (el navegador lo pide) y hace sonar lo que quedó pendiente.
 document.addEventListener('click', async (e) => {
-  if (!sonidoQuiere || sonidoListo() || e.target.closest?.('.control, .sonido')) return;
+  if (!sonidoQuiere || sonidoListo() || e.target.closest?.('.control, .sonido, .cara, .carapie')) return;   // la cara: que nada gaste el toque que la llave necesita
   if (await despertarSonido() && sonidoPendiente) sonar();
 }, true);
 document.addEventListener('touchstart', () => {}, { passive: true });   // para que el iPhone marque el botón apretado
@@ -924,6 +938,7 @@ function queHace(ordenes) {
   return [el('h2', {}, 'Qué está haciendo'), el('div', { class: 'tarjeta ahora' }, ...renglones)];
 }
 function pintar({ cuenta, perp, spot, ordenes, fills }) {
+  if (CARA.cerrada) return;   // protegida con la cara: nada de datos hasta que se abre
   U = medirLetra();
   const hoyDia = diaDe(Date.now()), hoy = inicioDe(hoyDia);
   const posiciones = (perp.assetPositions || []).map((x) => x.position);
@@ -988,6 +1003,7 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
     el('p', {}, `Actualizado a las ${hora(ultimoBien)}. Se actualiza solo una vez por minuto.`),
     el('p', {}, `Topes: −${TOPE_DIA} USD por día y −${TOPE_TOTAL} en total. Si los toca, para solo.`),
     el('p', {}, 'El día va de 0 a 24 h de Buenos Aires. La ganancia de cada operación ya tiene la comisión descontada.'),
+    caraPie,   // 27/11: «Proteger con tu cara» (o «Dejar de pedir la cara»), abajo de todo
   );
   pintarSonido();
   grafAhora = { dias, hoy: hoyDia, abierta, cuenta };
@@ -998,6 +1014,7 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   pintarNovedades();   // «No te toca hacer nada» depende de la luz del motor, que se acaba de decidir
 }
 function pintarError(e) {
+  if (CARA.cerrada) return;
   const viejo = ultimoBien ? ` Lo último que leí fue a las ${hora(ultimoBien)}.` : '';
   const pideEsperar = /429/.test(String(e && e.message));
   L.motor = pideEsperar
@@ -1007,7 +1024,148 @@ function pintarError(e) {
   pintarLuces();
   pintarNovedades();
 }
+// ---------- LA CARA: abrir la página con la llave de acceso del teléfono (27/11/2026) ----------
+// Ella: «Ponele reconocimiento facial a: Claude, el motor y remote desktop». El motor es una página agregada a la pantalla de
+// inicio y el iPhone puede no ofrecer «Requerir Face ID» para ella: por eso va ADENTRO de la página, con la llave de acceso
+// del teléfono (WebAuthn: el autenticador del propio teléfono, con la verificación de la persona obligatoria: Face ID).
+//   · Se prende con un toque de ella, abajo de todo («Proteger con tu cara»): crea la llave y la prueba una vez. Sólo si las
+//     dos salen bien queda protegida. Si el teléfono no deja probarla en el mismo toque, la página pide otro («Probar con
+//     tu cara»). Si el teléfono no puede, la página sigue como hoy y lo dice en una línea.
+//   · Protegida: al abrir, y al volver después de 5 minutos fuera, se ve UNA sola pantalla con «Abrir con tu cara» y nada
+//     de datos atrás (ni siquiera lee la cuenta ni le pregunta a la PC hasta que se abre). Con la cara abre todo.
+//   · Nadie se queda afuera: si falla dos veces, una línea dice qué hacer. Lo guardado por un ícono de la pantalla de
+//     inicio está aparte de Safari (WebKit: «the website data of home screen web applications is kept isolated from
+//     Safari», webkit.org/tracking-prevention): el enlace secreto abierto en Safari no pide la cara. Que borrar el ícono
+//     borre lo guardado NO está en la documentación de WebKit (27/11): por eso no se le dice eso. Y para frenar sin la
+//     página, la bolsa.
+//   · «Dejar de pedir la cara» pide la cara antes.
+// Lo que es y lo que no: frena a quien tenga el teléfono desbloqueado en la mano. No cifra nada, no reemplaza al enlace
+// secreto y no se comprueba en ningún servidor (no hay): la página mira que la respuesta sea de esa llave, para esta
+// página y este pedido, y que el teléfono diga que verificó a la persona. En el teléfono queda sólo cuál es la llave
+// («cara1»: su número y cuándo se creó). Nada nuevo sale del teléfono.
+const CLAVE_CARA = 'cara1', CARA_FUERA_MS = 5 * 60000;
+const CARA = { puede: null, llave: null, cerrada: false, fallas: 0, paso: '', aviso: '', nueva: null, ocupada: false, toque: 0, oculta: 0 };
+const caraPie = el('div', { class: 'carapie' });
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const deB64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+const azar = (n) => crypto.getRandomValues(new Uint8Array(n));
+function leerLlave() {
+  try { const g = JSON.parse(localStorage.getItem(CLAVE_CARA) || 'null'); if (g && typeof g.id === 'string' && /^[A-Za-z0-9_-]{16,}$/.test(g.id)) return g; } catch { /* nada guardado */ }
+  return null;
+}
+async function puedeCara() {
+  try { return !!(window.isSecureContext && window.PublicKeyCredential && navigator.credentials && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch { return false; }
+}
+async function crearLlave() {
+  const c = await navigator.credentials.create({ publicKey: {
+    challenge: azar(32), rp: { name: 'El motor' }, user: { id: azar(16), name: 'El motor', displayName: 'El motor' },
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred', requireResidentKey: false },
+    timeout: 120000, attestation: 'none' } });
+  return c && c.type === 'public-key' && c.rawId ? b64u(c.rawId) : null;
+}
+// Pide la cara con esa llave y mira la respuesta: que sea esa llave, para esta página y este pedido, y que el teléfono diga
+// que la persona estuvo y fue verificada (las marcas «presente» y «verificada» de los datos del autenticador).
+async function probarLlave(id) {
+  const pedido = azar(32);
+  const a = await navigator.credentials.get({ publicKey: { challenge: pedido, allowCredentials: [{ type: 'public-key', id: deB64u(id), transports: ['internal'] }], userVerification: 'required', timeout: 120000 } });
+  if (!a || !a.rawId || b64u(a.rawId) !== id || !a.response) return false;
+  const cd = JSON.parse(new TextDecoder().decode(a.response.clientDataJSON));
+  if (cd.type !== 'webauthn.get' || cd.challenge !== b64u(pedido) || cd.origin !== location.origin) return false;
+  const ad = new Uint8Array(a.response.authenticatorData); if (ad.length < 37) return false;
+  const rp = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(location.hostname)));
+  if (rp.some((b, i) => b !== ad[i])) return false;
+  return (ad[32] & 0x01) === 0x01 && (ad[32] & 0x04) === 0x04;
+}
+// La pantalla de la cara: una frase, el botón de 88 y, si falló, qué pasó y qué hacer. Nada más (ni las luces).
+function pintarCandado(esperando = false) {
+  U = medirLetra();
+  const caja = el('section', { class: 'cara', 'aria-label': 'Abrir con tu cara' }, el('p', { class: 'tit' }, '🔒 El motor está protegido con tu cara.'));
+  const b = el('button', { class: 'frenar', type: 'button' }, 'Abrir con tu cara');
+  b.addEventListener('click', abrirConCara);
+  caja.append(b);
+  if (esperando) caja.append(el('p', { class: 'mal', role: 'status' }, 'Esperando tu cara…'));
+  else if (CARA.fallas === 1) caja.append(el('p', { class: 'mal', role: 'status' }, '✖ No te reconoció. Tocá de nuevo «Abrir con tu cara».'));
+  else if (CARA.fallas >= 2) caja.append(el('p', { class: 'mal', role: 'status' }, '✖ No te reconoció otra vez. Si no te abre, abrí tu enlace secreto del motor en Safari: ahí no pide la cara.'), el('a', { class: 'bolsa', href: BOLSA, target: '_blank', rel: 'noopener' }, 'Frenar en la bolsa →'));
+  app.replaceChildren(caja);
+}
+function cerrarConCara() {
+  CARA.cerrada = true; CARA.fallas = 0; CARA.ocupada = false;
+  clearInterval(timer); timer = null;   // cerrada no lee nada: ni la cuenta ni la PC
+  document.body.classList.remove('tapado');
+  try { window.scrollTo(0, 0); } catch { /* */ }
+  pintarCandado();
+}
+async function abrirConCara() {
+  if (CARA.ocupada || Date.now() - CARA.toque < 700) return;   // un segundo toque seguido no cuenta (regla de diseño 4)
+  CARA.toque = Date.now(); CARA.ocupada = true; pintarCandado(true);
+  let bien = false; try { bien = !!CARA.llave && await probarLlave(CARA.llave.id); } catch { bien = false; }
+  CARA.ocupada = false;
+  if (!CARA.cerrada) return;
+  if (bien) { CARA.cerrada = false; CARA.fallas = 0; arrancar(); return; }
+  CARA.fallas++; pintarCandado();
+}
+// Abajo de todo: prenderla, probarla (si hizo falta otro toque) o sacarla. Lo que es y lo que no, dicho como es.
+const CARA_HONESTO = 'Frena a quien tenga tu teléfono desbloqueado en la mano. No cifra nada ni reemplaza a tu enlace secreto: abierto en Safari o en otro teléfono, no la pide.';
+function pintarCaraPie() {
+  const linea = (t, fuerte = false) => el('p', fuerte ? { class: 'fuerte', role: 'status' } : {}, t);
+  const boton = (t, fn) => { const x = el('button', { class: 'otro', type: 'button' }, t); x.addEventListener('click', fn); return x; };
+  let partes = [];
+  if (CARA.ocupada) partes = [linea('Esperando tu cara…', true)];
+  else if (CARA.llave) partes = [linea(CARA.aviso || '🔒 Protegida con tu cara: la pide al abrir y al volver después de 5 minutos.', true), linea(CARA_HONESTO), boton('Dejar de pedir la cara', dejarLaCara)];
+  else if (CARA.paso === 'probar') partes = [linea('La llave está creada. Falta probarla una vez con tu cara.', true), boton('Probar con tu cara', probarNueva)];
+  else if (CARA.puede === false) partes = [linea('Este teléfono no deja proteger la página con tu cara: sigue como hoy.')];
+  else if (CARA.puede) partes = [...(CARA.aviso ? [linea(CARA.aviso, true)] : []), boton('Proteger con tu cara', protegerConCara), linea('Pide tu cara al abrir la página y al volver después de 5 minutos. ' + CARA_HONESTO)];
+  caraPie.replaceChildren(...partes);
+}
+function quedarProtegida(id) {
+  const g = { id, t: Date.now() };
+  try { localStorage.setItem(CLAVE_CARA, JSON.stringify(g)); } catch { /* sin lugar */ }
+  CARA.paso = ''; CARA.nueva = null;
+  if (leerLlave()?.id === id) { CARA.llave = g; CARA.aviso = '✔ Listo: la página pide tu cara al abrir y al volver después de 5 minutos.'; }
+  else CARA.aviso = '✖ Este teléfono no deja guardar que la página está protegida: sigue sin pedir la cara.';
+}
+async function protegerConCara() {
+  if (CARA.ocupada || Date.now() - CARA.toque < 700) return;
+  CARA.toque = Date.now(); CARA.ocupada = true; CARA.aviso = ''; CARA.paso = ''; pintarCaraPie();
+  let id = null; try { id = await crearLlave(); } catch { id = null; }
+  if (!id) { CARA.ocupada = false; CARA.aviso = '✖ No se pudo crear la llave: la página sigue como antes. Podés probar de nuevo.'; pintarCaraPie(); return; }
+  // La prueba, en el mismo toque. Si el teléfono pide otro toque para esto, se lo pide a ella.
+  let bien = false; try { bien = await probarLlave(id); } catch { bien = false; }
+  CARA.ocupada = false;
+  if (bien) quedarProtegida(id); else { CARA.paso = 'probar'; CARA.nueva = id; }
+  pintarCaraPie();
+}
+async function probarNueva() {
+  if (CARA.ocupada || !CARA.nueva || Date.now() - CARA.toque < 700) return;
+  CARA.toque = Date.now(); CARA.ocupada = true; CARA.aviso = ''; pintarCaraPie();
+  let bien = false; try { bien = await probarLlave(CARA.nueva); } catch { bien = false; }
+  CARA.ocupada = false;
+  if (bien) quedarProtegida(CARA.nueva);
+  else { CARA.paso = ''; CARA.nueva = null; CARA.aviso = '✖ No se pudo probar la llave: la página sigue sin pedir la cara. Podés probar de nuevo.'; }
+  pintarCaraPie();
+}
+async function dejarLaCara() {
+  if (CARA.ocupada || !CARA.llave || Date.now() - CARA.toque < 700) return;
+  CARA.toque = Date.now(); CARA.ocupada = true; CARA.aviso = ''; pintarCaraPie();
+  let bien = false; try { bien = await probarLlave(CARA.llave.id); } catch { bien = false; }
+  CARA.ocupada = false;
+  if (!bien) CARA.aviso = '✖ No te reconoció: la página sigue pidiendo la cara.';
+  else {
+    const id = CARA.llave.id;
+    try { localStorage.removeItem(CLAVE_CARA); } catch { /* */ }
+    if (leerLlave()) CARA.aviso = '✖ No se pudo sacar: la página sigue pidiendo la cara.';
+    else {
+      CARA.llave = null; CARA.aviso = '✔ Listo: la página ya no pide la cara.';
+      // Si el teléfono lo sabe hacer, que también borre esa llave de sus contraseñas (sin preguntar nada; si no, queda ahí sin uso).
+      try { const p = window.PublicKeyCredential?.signalUnknownCredential?.({ rpId: location.hostname, credentialId: id }); if (p && p.catch) p.catch(() => {}); } catch { /* no lo sabe hacer */ }
+    }
+  }
+  pintarCaraPie();
+}
+
 function arrancar() {
+  if (CARA.cerrada) { pintarCandado(); return; }   // protegida con la cara: primero la cara
   U = medirLetra();
   const cuenta = leerCuenta();
   if (!cuenta) { pedirCuenta(); return; }
@@ -1019,9 +1177,22 @@ function arrancar() {
   clearInterval(timer); actualizar(cuenta); timer = setInterval(() => actualizar(cuenta), CADA_MS);
   preguntarPC();
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { const c = leerCuenta(); if (c) { actualizar(c); preguntarPC(); } } });
+// Al volver a la página: si está protegida y estuvo 5 minutos o más fuera, pide la cara; si no, lee de nuevo como siempre.
+// Mientras está fuera, protegida, lo de adentro se tapa (por si el teléfono saca una foto para la lista de apps).
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { CARA.oculta = Date.now(); if (CARA.llave && !CARA.cerrada) document.body.classList.add('tapado'); return; }
+  document.body.classList.remove('tapado');
+  if (CARA.cerrada) return;
+  if (CARA.llave && CARA.oculta && Date.now() - CARA.oculta >= CARA_FUERA_MS) { cerrarConCara(); return; }
+  const c = leerCuenta(); if (c) { actualizar(c); preguntarPC(); }
+});
+window.addEventListener('pagehide', () => { CARA.oculta = Date.now(); });
+window.addEventListener('pageshow', (e) => { if (e.persisted && CARA.llave && !CARA.cerrada && CARA.oculta && Date.now() - CARA.oculta >= CARA_FUERA_MS) cerrarConCara(); });
 window.addEventListener('hashchange', arrancar);
-arrancar();
+// Al abrir: si está protegida, primero la cara (nada se lee ni se dibuja antes). Después se averigua si el teléfono puede.
+CARA.llave = leerLlave();
+if (CARA.llave) cerrarConCara(); else arrancar();
+puedeCara().then((p) => { CARA.puede = p; pintarCaraPie(); });
 </script>
 </body>
 </html>
