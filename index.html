@@ -230,6 +230,9 @@ body.tapado main { visibility: hidden; }
 // 28/11/2026: MÁS SIMPLE (ella: «Está muy compleja la página del Motor»). Arriba: «Te toca», el estado en una línea, tres
 // números (ganancia de hoy, ganancia total, plata), «Frenar todo» y un renglón por mercado. Abajo: el gráfico, las últimas 3
 // operaciones, «Ver más detalle» (todo lo demás, plegado: nada se borró salvo lo que se repetía), el sonido y la cara.
+// 28/11/2026: HIBACHI Y REYA (y los lugares que vengan), cada uno con su cuenta aparte, como Extended: la PC los manda en
+// «lugares» (motor/celu-novedades.mjs). Cada uno suma su renglón en «Qué hace cada mercado» (con su nombre), su plata y lo
+// que lleva en los tres números, el aviso si su guardián deja de mirar, y su tarjeta en «Ver más detalle» (lugaresDe).
 const API = 'https://api.hyperliquid.xyz/info', NTFY = 'https://ntfy.sh', BOLSA = 'https://app.hyperliquid.xyz/trade';
 const DEXES = ['io', 'xyz'];
 // 26/11/2026: el tope total es −45 (desde el 25/11) y el de órdenes se cuenta POR MERCADO (el motor opera hasta 6 a la
@@ -240,6 +243,7 @@ const app = document.getElementById('app');
 const zona = { timeZone: 'America/Argentina/Buenos_Aires' };
 const usd = (x) => (x <= -0.005 ? '−' : x >= 0.005 ? '+' : '') + Math.abs(x).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD';
 const plano = (x) => x.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD';
+const cifra = (x) => Number(x).toLocaleString('es-AR', { maximumFractionDigits: 2 });   // 28/11: el tamaño de una orden, «1,5» (no «1.5»)
 const clase = (x) => (x > 0.005 ? 'gana' : x < -0.005 ? 'pierde' : '');
 const hora = (t) => new Date(t).toLocaleTimeString('es-AR', { ...zona, hour: '2-digit', minute: '2-digit', hour12: false });
 const haceCuanto = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'recién' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.floor(m / 60)} h ${m % 60} min` : `hace ${Math.floor(m / 1440)} días`; };
@@ -307,8 +311,9 @@ function problemas() {
   if (L.motor && (L.motor.tipo === 'alto' || L.motor.tipo === 'ojo' || L.motor.atencion)) ps.push(L.motor);
   if (L.pc && L.pc.tipo === 'alto') ps.push(L.pc);
   if (L.claude && L.claude.tipo === 'alto') ps.push(L.claude);
-  const x = extDe(N.dato);
-  if (N.fresco && x && !x.corre) ps.push({ tipo: 'alto', titulo: `El guardián de Extended no mira la cuenta desde ${cuandoEs(x.visto)}`, texto: [] });
+  // 28/11: lo mismo para cada lugar (Extended, Hibachi, Reya…), salvo cuando ya no hay nada en juego: el guardián sale solo
+  // cuando el programa terminó y la cuenta quedó sin órdenes ni posición (eso no es una falla).
+  for (const l of lugaresDe(N.dato)) if (N.fresco && l.x && !l.x.corre && !quietaDelTodo(l)) ps.push({ tipo: 'alto', titulo: `El guardián de ${l.n} no mira la cuenta desde ${cuandoEs(l.x.visto)}`, texto: [] });
   return ps.sort((a, b) => GRAVE[a.tipo] - GRAVE[b.tipo]);
 }
 function pintarEstado() {
@@ -390,7 +395,7 @@ function pintarControl() {
   } else {
     const r = C.r, ps = r.programas || [];
     // 26/11: parte del motor opera desde el servidor de afuera («donde: servidor»): se dice cuál, porque eso sigue aunque la PC se apague.
-    const dice = (p) => String(p.m).split(':').pop() + (p.lugar === 'extended' ? ' (en Extended)' : '') + (p.usd ?' con ' + p.usd + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '') : ' en pausa' + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '')) + (p.parar ? ' — frenado' : '');
+    const dice = (p) => String(p.m).split(':').pop() + (p.lugar ? ` (en ${nombreLugar(p.lugar)})` : '') + (p.usd ? ' con ' + cifra(p.usd) + ' USD' + (p.filas > 1 ? ' × ' + p.filas + ' filas' : '') + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '') : ' en pausa' + (p.vence ? ' hasta ' + cuandoVence(p.vence) : '')) + (p.parar ? ' — frenado' : '');
     const enSrv = ps.filter((p) => p.donde === 'servidor'), enPC = ps.filter((p) => p.donde !== 'servidor');
     L.pc = { tipo: 'ok', corto: 'PC', titulo: 'La PC contesta (' + hora(C.cuando) + ')', texto: !ps.length ? ['Ningún programa del motor está operando.'] : enSrv.length ? ['Desde el servidor (siguen aunque la PC se apague): ' + enSrv.map(dice).join('; ') + '.', ...(enPC.length ? ['Desde la PC: ' + enPC.map(dice).join('; ') + '.'] : [])] : ['Operan: ' + ps.map(dice).join('; ') + '.'] };
     L.claude = r.claude && r.claude.ok === false
@@ -464,16 +469,19 @@ function tarjetaToca(n) {
 }
 // El lugar nuevo cuando ya opera con plata: lo mismo que se dice de los mercados de siempre.
 function fraseOpera(o) {
-  const QUIETO = { frenado: 'Frenado: no opera hasta que lo decidas.', 'tope-total': 'Paró solo: tocó su tope total.', 'tope-dia': 'Paró por hoy: tocó su tope del día.', pausa: 'En pausa por el freno' + (o.hasta ? ' hasta las ' + o.hasta : '') + '.', 'sin-tamano': 'En pausa: no pone órdenes.', quieto: 'Quieto por ahora.' };
+  const QUIETO = { frenado: 'Frenado: no opera hasta que lo decidas.', 'tope-total': 'Paró solo: tocó su tope total.', 'tope-dia': 'Paró por hoy: tocó su tope del día.', pausa: 'En pausa por el freno' + (o.hasta ? ' hasta las ' + o.hasta : '') + '.', 'sin-tamano': 'En pausa: no pone órdenes.', vueltas: 'Hizo todas sus vueltas: cierra y termina.', ciego: 'Quieto: no puede leer la cuenta o sus llenadas.', quieto: 'Quieto por ahora.' };
   // Qué hace el programa. Lo ganado o perdido NO sale de acá: sale de lo que vale la cuenta (fraseCuenta).
-  if (!o.corre) return 'El programa no está corriendo ahora' + (o.visto > 0 ? ` (último dato: ${cuandoEs(o.visto)})` : '') + '.';
+  // 28/11: si terminó solo (vencida la tanda, PARAR, el tope o sus vueltas), lo dice con la hora: no está «apagado».
+  if (!o.corre) return o.fin && o.visto > 0 ? `El programa terminó ${cuandoEs(o.visto)}.` : 'El programa no está corriendo ahora' + (o.visto > 0 ? ` (último dato: ${cuandoEs(o.visto)})` : '') + '.';
   if (o.quieto) return QUIETO[o.quieto] || QUIETO.quieto;
-  if (o.usd > 0) return `Opera con órdenes de ${o.usd} USD` + (o.puestas > 0 ? ` (${o.puestas === 1 ? '1 puesta' : o.puestas + ' puestas'} ahora)` : '') + (o.vence > Date.now() ? `, hasta ${cuandoEs(o.vence)}` : '') + '.';
+  if (o.usd > 0) return `Opera con órdenes de ${cifra(o.usd)} USD` + (o.puestas > 0 ? ` (${o.puestas === 1 ? '1 puesta' : o.puestas + ' puestas'} ahora)` : '') + (o.vence > Date.now() ? `, hasta ${cuandoEs(o.vence)}` : '') + '.';
   return 'En pausa: no pone órdenes.';
 }
 // 27/11 (mesa crítica): lo que vale la cuenta de ese lugar, como la ve su guardián. De acá sale cuánto lleva: de la plata
 // de verdad de la cuenta, no de la cuenta que lleva el programa por dentro.
-function fraseCuenta(x) {
+// 28/11: «quieta» = nada en juego (sin órdenes, sin posición y sin programa corriendo): si el guardián ya no la mira, es
+// porque salió solo al final, y se dice sin la cruz.
+function fraseCuenta(x, quieta = false) {
   const partes = ['La cuenta vale ', el('b', {}, plano(x.vale))];
   if (typeof x.lleva === 'number') partes.push(': lleva ', el('b', { class: clase(x.lleva) }, usd(x.lleva)), x.desde > 0 ? ` desde ${cuandoEs(x.desde)}` : '');
   partes.push('. ');
@@ -481,8 +489,17 @@ function fraseCuenta(x) {
   partes.push(x.pos ? 'Tiene una posición abierta. ' : x.ordenes > 0 ? `Sin posición; ${x.ordenes === 1 ? '1 orden puesta' : x.ordenes + ' órdenes puestas'}. ` : 'Sin posición ni órdenes. ');
   if (x.limp > 0) partes.push(`El guardián la frenó ${x.limp === 1 ? 'una vez' : x.limp + ' veces'}` + (typeof x.motivo === 'string' && x.motivo ? `: ${x.motivo}` : '') + '. ');
   if (x.parar) partes.push('Tiene el freno puesto. ');
-  partes.push(!x.corre ? `✖ El guardián no la mira desde ${cuandoEs(x.visto)}.` : N.fresco ? 'El guardián la está mirando.' : `Dato del guardián: ${cuandoEs(x.visto)}.`);
+  partes.push(!x.corre ? (quieta ? `El guardián dejó de mirarla ${cuandoEs(x.visto)}, con todo cerrado.` : `✖ El guardián no la mira desde ${cuandoEs(x.visto)}.`) : N.fresco ? 'El guardián la está mirando.' : `Dato del guardián: ${cuandoEs(x.visto)}.`);
   return partes;
+}
+// 28/11: un lugar que no es Extended (Hibachi, Reya…), en «Ver más detalle»: lo que hace cada programa y lo que vale su
+// cuenta, igual que la tarjeta de Extended pero sin pasos (su camino está en «Lo que se fue mirando»).
+function tarjetaLugar(l) {
+  const caja = el('div', { class: 'tarjeta nov' });
+  for (const o of l.op) caja.append(el('p', {}, el('b', {}, String(o.m) + ' · '), fraseOpera(o)));
+  if (!l.op.length) caja.append(el('p', {}, 'Su programa todavía no arrancó.'));
+  caja.append(el('p', {}, ...(l.x ? fraseCuenta(l.x, quietaDelTodo(l)) : ['Su guardián todavía no dijo cuánto vale la cuenta.'])));
+  return caja;
 }
 function tarjetaCamino(c, ext) {
   const caja = el('div', { class: 'tarjeta nov' });
@@ -497,7 +514,7 @@ function tarjetaCamino(c, ext) {
   }
   if (typeof c.nota === 'string' && c.nota) caja.append(el('p', {}, c.nota));   // cómo está hoy, con palabras de las rondas
   for (const o of opera) caja.append(el('p', {}, el('b', {}, String(o.m ?? '') + ' · '), fraseOpera(o)));
-  if (cuenta) caja.append(el('p', {}, ...fraseCuenta(cuenta)));
+  if (cuenta) caja.append(el('p', {}, ...fraseCuenta(cuenta, quietaDelTodo({ x: cuenta, op: opera }))));
   if (!pasos.length) return caja;
   const lista = el('ul', { class: 'pasos' });
   for (const p of pasos) {
@@ -566,6 +583,8 @@ function seccionesNuevas(n) {
   const out = [], c = n.camino, p = n.papel;
   const camino = c && typeof c === 'object' && typeof c.nombre === 'string' && c.nombre ? tarjetaCamino(c, n.ext) : null;
   if (camino) out.push(el('h2', {}, c.nombre + ', paso a paso'), camino);   // 28/11: ya no es «Lo nuevo» (Extended opera)
+  // 28/11: cada otro lugar con plata (Hibachi, Reya…), con su cuenta aparte
+  for (const l of lugaresDe(n)) if (!l.ext) out.push(el('h2', {}, l.n + ', con plata'), tarjetaLugar(l));
   if (p && typeof p === 'object' && p.n > 0) out.push(el('h2', {}, 'En prueba, sin plata'), tarjetaPapel(p));
   const mirado = Array.isArray(n.mirado) ? tarjetaMirado(n) : null;
   if (mirado) out.push(el('h2', {}, 'Lo que se fue mirando'), mirado);
@@ -599,32 +618,61 @@ function extDe(n) { return n && n.ext && typeof n.ext === 'object' && typeof n.e
 const dos = (x) => x.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const redondo = (x) => (Math.abs(x - Math.round(x)) < 0.005 ? String(Math.round(x)) : dos(x));   // los topes: «10», o «8,47» si queda menos
 const EXT = 'Extended';   // la cuenta que mira el guardián (n.ext) y los programas de n.camino.opera son de Extended (D:/motor/extended)
+// 28/11: LOS LUGARES CON PLATA FUERA DE HYPERLIQUID, cada uno con su cuenta aparte: Extended (n.ext y n.camino.opera, como
+// antes) y los que manda la PC en n.lugares (Hibachi, Reya y los que vengan: la página no necesita saber cuáles son).
+// x: lo que dice su guardián (null si todavía no dice lo que vale) · op: lo que hacen sus programas · fee: comisiones de hoy.
+function lugaresDe(n) {
+  if (!n || typeof n !== 'object') return [];
+  const ops = (xs) => (Array.isArray(xs) ? xs.filter((o) => o && typeof o === 'object' && o.m != null) : []), fee = (y) => (y && typeof y === 'object' && typeof y.fee === 'number' ? Math.max(0, y.fee) : 0);
+  const out = [], x = extDe(n), op = ops(n.camino && n.camino.opera);
+  if (x || op.length || fee(n.ext)) out.push({ n: EXT, ext: true, x, op, fee: fee(n.ext) });
+  for (const l of Array.isArray(n.lugares) ? n.lugares : []) {
+    if (!l || typeof l !== 'object' || typeof l.n !== 'string' || !l.n.trim() || l.n === EXT) continue;
+    const y = { n: l.n.trim().slice(0, 20), x: typeof l.vale === 'number' && l.visto > 0 ? l : null, op: ops(l.op), fee: fee(l) };
+    if (y.x || y.op.length || y.fee) out.push(y);   // un lugar sin nada que se entienda no se muestra
+  }
+  return out;
+}
+// Nada en juego en ese lugar: el guardián vio la cuenta sin órdenes ni posición, y ningún programa suyo corre.
+const quietaDelTodo = (l) => !!l.x && !(l.x.ordenes > 0) && !l.x.pos && !l.op.some((o) => o.corre);
+// El lugar que dice la PC en un programa («lugar»: 'extended', 'hibachi', 'reya'…), con su nombre.
+const NOMBRE_LUGAR = { extended: 'Extended', hibachi: 'Hibachi', reya: 'Reya' };
+const nombreLugar = (k) => NOMBRE_LUGAR[k] || (String(k).charAt(0).toUpperCase() + String(k).slice(1, 20));
 function bloquePlata() {
   if (!plataHL) return null;
-  const n = N.dato, x = extDe(n);
-  // Si el guardián de ese lugar todavía no dice nada, vale la plata que anotó la conversación (y se dice cómo está).
-  const anotada = !x && n && Array.isArray(n.plata) ? n.plata.filter((p) => Array.isArray(p) && typeof p[0] === 'string' && p[0] && typeof p[1] === 'number') : [];
-  // Lo que lleva Extended cuenta como «de hoy» sólo si su base se tomó hoy; si es de otro día, se dice y no se suma.
-  const lleva = x && typeof x.lleva === 'number' ? x.lleva : null, deHoy = lleva != null && x.desde > 0 && diaDe(x.desde) === diaDe(Date.now());
-  const hoy = plataHL.dia + (deHoy ? lleva : 0), total = plataHL.total + (lleva ?? 0);
-  const opera = n && n.camino && Array.isArray(n.camino.opera) ? n.camino.opera : [];
-  const enJuego = !!x && (x.ordenes > 0 || !!x.pos || opera.some((o) => o && o.corre && !o.quieto && o.usd > 0));
-  const viejo = x && (!N.fresco || !x.corre) ? ` (dato de ${cuandoEs(x.visto)})` : '';
-  // El tope de hoy: el del día, salvo que lo que queda del tope total sea menos. Lo de Extended tiene su propio tope (el del
-  // programa) y se dice aparte. «Quedan»: lo que falta para el tope total, los dos lugares sumados.
+  const n = N.dato, ls = lugaresDe(n), conX = ls.filter((l) => l.x);
+  const mismo = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+  // Si el guardián de un lugar todavía no dice nada, vale la plata que anotó la conversación para ese lugar (y se dice cómo
+  // está). 28/11: lugar por lugar (antes, con el guardián de Extended se dejaba de lado toda la plata anotada).
+  const anotada = n && Array.isArray(n.plata) ? n.plata.filter((p) => Array.isArray(p) && typeof p[0] === 'string' && p[0] && typeof p[1] === 'number' && !conX.some((l) => mismo(l.n, p[0]))) : [];
+  // Lo que lleva cada lugar cuenta como «de hoy» sólo si su base se tomó hoy; si es de otro día, se dice y no se suma.
+  let hoy = plataHL.dia, total = plataHL.total, fee = Math.max(0, plataHL.fee);
+  const sinContar = [], topes = [];
+  for (const l of ls) {
+    fee += l.fee;
+    if (!l.x) continue;
+    const lleva = typeof l.x.lleva === 'number' ? l.x.lleva : null, deHoy = lleva != null && l.x.desde > 0 && diaDe(l.x.desde) === diaDe(Date.now());
+    if (lleva != null) { total += lleva; if (deHoy) hoy += lleva; else sinContar.push([`sin contar ${l.n}: su cuenta se mide desde ${l.x.desde > 0 ? cuandoEs(l.x.desde) : 'otro día'}`]); }
+    // El tope de cada lugar (el de su programa) se dice sólo cuando está en juego: órdenes, posición o el programa operando.
+    const enJuego = l.x.ordenes > 0 || !!l.x.pos || l.op.some((o) => o.corre && !o.quieto && o.usd > 0);
+    if (enJuego && l.x.tope > 0) topes.push(`−${redondo(l.x.tope)} en ${l.n}`);
+  }
+  const viejo = (x) => (!N.fresco || !x.corre ? ` (dato de ${cuandoEs(x.visto)})` : '');
+  // El tope de hoy: el del día, salvo que lo que queda del tope total sea menos. «Quedan»: lo que falta para el tope total,
+  // todos los lugares sumados.
   const quedan = Math.max(0, TOPE_TOTAL + Math.min(0, total)), maxHL = Math.max(0, Math.min(TOPE_DIA, Math.max(0, -plataHL.dia) + quedan));
-  const feeExt = n && n.ext && typeof n.ext === 'object' && typeof n.ext.fee === 'number' ? Math.max(0, n.ext.fee) : 0;
   const d = plataHL.dolar;
   const fila = (rot, val, cls, notas) => el('div', { class: 'fila' }, el('span', { class: 'rot' }, rot), el('span', { class: 'val ' + cls }, val), ...notas.filter(Boolean).map(([t, fuerte]) => el('div', { class: 'nota' + (fuerte ? ' fuerte' : '') }, t)));
+  const saldo = plataHL.saldo + conX.reduce((s, l) => s + l.x.vale, 0) + anotada.reduce((s, p) => s + p[1], 0);
   return el('section', { class: 'tarjeta plata', 'aria-label': 'La plata' },
     fila('Ganancia de hoy', usd(hoy), clase(hoy), [
-      [`objetivo +${OBJETIVO_DIA} · tope −${redondo(maxHL)}` + (enJuego && x.tope > 0 ? ` (y −${redondo(x.tope)} en ${EXT})` : '') + ` · comisiones ${dos(Math.max(0, plataHL.fee) + feeExt)}`],
+      [`objetivo +${OBJETIVO_DIA} · tope −${redondo(maxHL)}` + (topes.length ? ` (y ${topes.join(' y ')})` : '') + ` · comisiones ${dos(fee)}`],
       plataHL.fee < -0.005 ? [`Hyperliquid te devolvió ${dos(-plataHL.fee)}`] : null,
-      lleva != null && !deHoy ? [`sin contar ${EXT}: su cuenta se mide desde ${x.desde > 0 ? cuandoEs(x.desde) : 'otro día'}`] : null,
+      ...sinContar,
       d && d.nivel > 0 ? [`🔔 Llegó a +${d.nivel} USD a las ${hora(d.cuando)}`, true] : null,   // la campanita, escrita (el sonido nunca es la única señal)
     ]),
     fila('Ganancia total', usd(total), clase(total), [[`tope −${TOPE_TOTAL} · quedan ${dos(quedan)}`], plataHL.completo ? null : ['faltan operaciones viejas: la bolsa no las dio todas']]),
-    fila('Plata', plano(plataHL.saldo + (x ? x.vale : anotada.reduce((s, p) => s + p[1], 0))), '', [[`Hyperliquid ${dos(plataHL.saldo)}` + (x ? ` · ${EXT} ${dos(x.vale)}${viejo}` : anotada.map((p) => ` · ${p[0]} ${dos(p[1])}` + (typeof p[2] === 'string' && p[2] ? ` (${p[2]})` : '')).join(''))]]),
+    fila('Plata', plano(saldo), '', [[`Hyperliquid ${dos(plataHL.saldo)}` + conX.map((l) => ` · ${l.n} ${dos(l.x.vale)}${viejo(l.x)}`).join('') + anotada.map((p) => ` · ${p[0]} ${dos(p[1])}` + (typeof p[2] === 'string' && p[2] ? ` (${p[2]})` : '')).join('')]]),
   );
 }
 
@@ -639,7 +687,7 @@ function cuandoCorto(t) {   // «15:59», «ayer 15:59», «mañana 10:45», «e
   const d = diaDe(t), ahora = Date.now();
   return (d === diaDe(ahora) ? '' : d === diaDe(ahora - 86400e3) ? 'ayer ' : d === diaDe(ahora + 86400e3) ? 'mañana ' : `el ${+d.slice(8)}/${+d.slice(5, 7)} `) + hora(t);
 }
-const QUIETO_CORTO = { frenado: 'frenado', 'tope-total': 'paró: tocó su tope total', 'tope-dia': 'paró por hoy: tocó su tope', pausa: 'en pausa por el freno', 'sin-tamano': 'en pausa', quieto: 'quieto' };
+const QUIETO_CORTO = { frenado: 'frenado', 'tope-total': 'paró: tocó su tope total', 'tope-dia': 'paró por hoy: tocó su tope', pausa: 'en pausa por el freno', 'sin-tamano': 'en pausa', vueltas: 'hizo todas sus vueltas: termina', ciego: 'quieto: no puede leer la cuenta', quieto: 'quieto' };
 function pintarMercados() {
   const dato = ultimoDato, filas = [], nombre = (m) => String(m).split(':').pop();
   if (dato) {
@@ -661,20 +709,29 @@ function pintarMercados() {
       filas.push({ m, que, cuando, activo });
     }
   }
-  // Extended: lo que dice la PC de sus programas (n.camino.opera) y de la cuenta (n.ext). Un programa apagado hace más de dos
-  // horas no va acá (sí en «Ver más detalle»).
-  const n = N.dato, x = extDe(n), opera = n && n.camino && Array.isArray(n.camino.opera) ? n.camino.opera.filter((o) => o && typeof o === 'object' && o.m != null) : [];
-  let posDicha = false;
-  for (const o of opera) {
-    if (!o.corre && !(o.visto > 0 && Date.now() - o.visto < 2 * 3600e3)) continue;
-    let que, activo = false, cuando = '';
-    if (!o.corre) que = 'apagado' + (o.visto > 0 ? ' desde ' + cuandoCorto(o.visto) : '');
-    else if (o.quieto) { que = QUIETO_CORTO[o.quieto] || QUIETO_CORTO.quieto; if (o.quieto === 'pausa' && o.hasta) cuando = 'hasta ' + o.hasta; }
-    else if (x && x.pos && !posDicha) { que = 'con una posición abierta'; activo = posDicha = true; }
-    else if (o.usd > 0) { que = o.puestas > 0 ? 'esperando para entrar' : 'operando, sin órdenes ahora'; activo = true; if (o.vence > Date.now()) cuando = 'hasta ' + cuandoCorto(o.vence); }
-    else que = 'en pausa';
-    if (!N.fresco && N.recibido) cuando = 'dato de ' + cuandoCorto(N.recibido);
-    filas.push({ m: String(o.m) + ' (' + EXT + ')', que, cuando, activo });
+  // Extended, Hibachi, Reya…: lo que dice la PC de sus programas (n.camino.opera, n.lugares[].op) y de cada cuenta (n.ext,
+  // n.lugares). Cada renglón lleva el nombre de su lugar. Un programa apagado hace más de dos horas no va acá (sí en «Ver
+  // más detalle»). 28/11: si terminó solo, «terminó» con la hora y cómo quedó la cuenta; si el guardián la frenó, se dice.
+  for (const l of lugaresDe(N.dato)) {
+    const x = l.x, abierto = x && (x.pos ? 'una posición abierta' : x.ordenes > 0 ? (x.ordenes === 1 ? '1 orden puesta' : x.ordenes + ' órdenes puestas') : '');
+    let posDicha = false;
+    for (const o of l.op) {
+      if (!o.corre && !(o.visto > 0 && Date.now() - o.visto < 2 * 3600e3)) continue;
+      let que, activo = false, cuando = '';
+      if (!o.corre) {
+        const fin = !!o.fin && o.visto > 0;   // terminó solo: su último dato es la hora en que terminó
+        que = fin ? 'terminó' + (x && x.limp > 0 ? ': lo frenó el guardián' : '') : 'apagado' + (o.visto > 0 ? ' desde ' + cuandoCorto(o.visto) : '');
+        if (fin) cuando = cuandoCorto(o.visto);
+        if (abierto && !posDicha) { que += ' · ✖ quedó ' + abierto; activo = posDicha = true; }   // lo que sigue abierto sin su programa: en juego
+        else if (fin && x && !abierto) que += '; la cuenta quedó en cero';
+      }
+      else if (o.quieto) { que = (o.quieto === 'frenado' && x && x.limp > 0 ? 'frenado por el guardián' : QUIETO_CORTO[o.quieto] || QUIETO_CORTO.quieto); if (o.quieto === 'pausa' && o.hasta) cuando = 'hasta ' + o.hasta; }
+      else if (x && x.pos && !posDicha) { que = 'con una posición abierta'; activo = posDicha = true; }
+      else if (o.usd > 0) { que = o.puestas > 0 ? 'esperando para entrar' : 'operando, sin órdenes ahora'; activo = true; if (o.vence > Date.now()) cuando = 'hasta ' + cuandoCorto(o.vence); }
+      else que = 'en pausa';
+      if (!N.fresco && N.recibido) cuando = 'dato de ' + cuandoCorto(N.recibido);
+      filas.push({ m: String(o.m) + ' (' + l.n + ')', que, cuando, activo });
+    }
   }
   if (!filas.length) { mercadosEl.replaceChildren(); return; }
   filas.sort((a, b) => b.activo - a.activo);   // lo que tiene plata en juego, arriba (en el orden de siempre)
