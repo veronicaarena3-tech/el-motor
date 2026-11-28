@@ -18,7 +18,7 @@
   --fondo: #f6f5f2; --tarjeta: #ffffff; --texto: #1b1b1b; --suave: #4a4a4a; --borde: #d9d6cf;
   --verde: #0d6b3a; --verde-fondo: #e3f3e9; --ambar: #7a4b00; --ambar-fondo: #fff1d6;
   --rojo: #a3191b; --rojo-fondo: #fde4e4; --gris-fondo: #ebebeb;
-  --frenar: #2f4050; --frenar-texto: #ffffff;
+  --frenar: #2f4050; --frenar-texto: #ffffff; --prueba: #5b2a86;
   --graf-gana: #008300; --graf-pierde: #e34948; --eje: #8a8780;
 }
 @media (prefers-color-scheme: dark) {
@@ -26,7 +26,7 @@
     --fondo: #121212; --tarjeta: #1e1e1e; --texto: #f2f2f2; --suave: #c4c4c4; --borde: #3a3a3a;
     --verde: #7fdca6; --verde-fondo: #12301f; --ambar: #ffcf70; --ambar-fondo: #3a2a07;
     --rojo: #ff9a9a; --rojo-fondo: #3d1414; --gris-fondo: #2a2a2a;
-    --frenar: #c9d6e2; --frenar-texto: #101418;
+    --frenar: #c9d6e2; --frenar-texto: #101418; --prueba: #d9c2ff;
     --graf-gana: #0ca30c; --graf-pierde: #e66767; --eje: #8a8780;
   }
 }
@@ -34,7 +34,7 @@
   --fondo: #121212; --tarjeta: #1e1e1e; --texto: #f2f2f2; --suave: #c4c4c4; --borde: #3a3a3a;
   --verde: #7fdca6; --verde-fondo: #12301f; --ambar: #ffcf70; --ambar-fondo: #3a2a07;
   --rojo: #ff9a9a; --rojo-fondo: #3d1414; --gris-fondo: #2a2a2a;
-  --frenar: #c9d6e2; --frenar-texto: #101418;
+  --frenar: #c9d6e2; --frenar-texto: #101418; --prueba: #d9c2ff;
   --graf-gana: #0ca30c; --graf-pierde: #e66767; --eje: #8a8780;
 }
 * { box-sizing: border-box; }
@@ -181,6 +181,14 @@ ul.mirado li { padding: 10px 0; border-top: 1px solid var(--borde); font-size: v
 ul.mirado .nom { font-weight: 700; }
 ul.mirado .ver { font-size: var(--f15); font-weight: 700; white-space: nowrap; }
 ul.mirado .ver.v { color: var(--verde); } ul.mirado .ver.e { color: var(--ambar); } ul.mirado .ver.d { color: var(--suave); }
+ul.mirado .ver.p { color: var(--prueba); }   /* «en prueba con plata»: violeta, que no es el color de actuar ni el de ganar o perder */
+/* HOY CON PLATA Y EL RIESGO (27/11, mesa crítica): debajo de «Te toca», sobre el fondo de la página. Sólo plata de verdad:
+   ningún número de papel va acá. El número de hoy, más grande; lo demás, frases de 17. */
+.plata { margin: 0 2px 8px; overflow-wrap: anywhere; }
+.plata p { margin: 0; font-size: var(--f17); line-height: 1.35; }
+.plata p + p { margin-top: 4px; }
+.plata .hoy b { font-size: var(--f22); font-weight: 700; white-space: nowrap; }
+.plata .gris { color: var(--suave); }
 ul.mirado .por { display: block; margin-top: 2px; }
 </style>
 </head>
@@ -204,6 +212,7 @@ const DEXES = ['io', 'xyz'];
 // 26/11/2026: el tope total es −45 (desde el 25/11) y el de órdenes se cuenta POR MERCADO (el motor opera hasta 6 a la
 // vez): 3 filas por lado y la salida. Los frenos puestos en la bolsa no cuentan.
 const TOPE_DIA = 10, TOPE_TOTAL = 45, POSICION_MAX = 605, ORDENES_MAX = 7;
+const OBJETIVO_DIA = 30;   // 27/11 (mesa crítica): «Hoy con plata» se mide contra el objetivo de ella, 30 USD por día
 const app = document.getElementById('app');
 const zona = { timeZone: 'America/Argentina/Buenos_Aires' };
 const usd = (x) => (x <= -0.005 ? '−' : x >= 0.005 ? '+' : '') + Math.abs(x).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD';
@@ -381,7 +390,7 @@ function pintarControl() {
 // PC lo acaba de decir y ninguna luz está en rojo (más abajo, nadaQueHacer).
 const CLAVE_NOV = 'novedades1';
 const N = { dato: null, recibido: 0, fresco: false };   // dato: el bloque · recibido: cuándo llegó · fresco: lo dijo la PC en la última pregunta
-const novBien = (n) => !!n && typeof n === 'object' && n.v === 1;
+const novBien = (n) => !!n && typeof n === 'object' && n.v === 2;   // v: 2 desde el 27/11 21:30 (la mesa crítica); un bloque v: 1 guardado en el teléfono no se usa
 function cargarNovedades() {
   N.dato = null; N.recibido = 0; N.fresco = false;
   if (!leerCanal()) return;
@@ -415,30 +424,40 @@ function tarjetaToca(n) {
 // El lugar nuevo cuando ya opera con plata: lo mismo que se dice de los mercados de siempre.
 function fraseOpera(o) {
   const QUIETO = { frenado: 'Frenado: no opera hasta que lo decidas.', 'tope-total': 'Paró solo: tocó su tope total.', 'tope-dia': 'Paró por hoy: tocó su tope del día.', pausa: 'En pausa por el freno' + (o.hasta ? ' hasta las ' + o.hasta : '') + '.', 'sin-tamano': 'En pausa: no pone órdenes.', quieto: 'Quieto por ahora.' };
-  const partes = [];
-  if (!o.corre) partes.push('El programa no está corriendo ahora' + (o.visto > 0 ? ` (último dato: ${cuandoEs(o.visto)})` : '') + '. ');
-  else if (o.quieto) partes.push((QUIETO[o.quieto] || QUIETO.quieto) + ' ');
-  else if (o.usd > 0) partes.push(`Opera con órdenes de ${o.usd} USD` + (o.puestas > 0 ? ` (${o.puestas === 1 ? '1 puesta' : o.puestas + ' puestas'} ahora)` : '') + '. ');
-  else partes.push('En pausa: no pone órdenes. ');
-  if (typeof o.hoy === 'number' && typeof o.total === 'number') partes.push('Hoy lleva ', el('b', { class: clase(o.hoy) }, usd(o.hoy)), ' y en total ', el('b', { class: clase(o.total) }, usd(o.total)), '. ');
-  partes.push(Math.abs(o.pos) >= 0.005 ? `Tiene una posición: ${o.pos > 0 ? 'compró' : 'vendió'} ${plano(Math.abs(o.pos))}.` : 'Sin posición ahora.');
+  // Qué hace el programa. Lo ganado o perdido NO sale de acá: sale de lo que vale la cuenta (fraseCuenta).
+  if (!o.corre) return 'El programa no está corriendo ahora' + (o.visto > 0 ? ` (último dato: ${cuandoEs(o.visto)})` : '') + '.';
+  if (o.quieto) return QUIETO[o.quieto] || QUIETO.quieto;
+  if (o.usd > 0) return `Opera con órdenes de ${o.usd} USD` + (o.puestas > 0 ? ` (${o.puestas === 1 ? '1 puesta' : o.puestas + ' puestas'} ahora)` : '') + (o.vence > Date.now() ? `, hasta ${cuandoEs(o.vence)}` : '') + '.';
+  return 'En pausa: no pone órdenes.';
+}
+// 27/11 (mesa crítica): lo que vale la cuenta de ese lugar, como la ve su guardián. De acá sale cuánto lleva: de la plata
+// de verdad de la cuenta, no de la cuenta que lleva el programa por dentro.
+function fraseCuenta(x) {
+  const partes = ['La cuenta vale ', el('b', {}, plano(x.vale))];
+  if (typeof x.lleva === 'number') partes.push(': lleva ', el('b', { class: clase(x.lleva) }, usd(x.lleva)), x.desde > 0 ? ` desde ${cuandoEs(x.desde)}` : '');
+  partes.push('. ');
+  if (x.tope > 0) partes.push(`El programa frena solo si pierde ${plano(x.tope)}. `);
+  partes.push(x.pos ? 'Tiene una posición abierta. ' : x.ordenes > 0 ? `Sin posición; ${x.ordenes === 1 ? '1 orden puesta' : x.ordenes + ' órdenes puestas'}. ` : 'Sin posición ni órdenes. ');
+  if (x.limp > 0) partes.push(`El guardián la frenó ${x.limp === 1 ? 'una vez' : x.limp + ' veces'}` + (typeof x.motivo === 'string' && x.motivo ? `: ${x.motivo}` : '') + '. ');
+  if (x.parar) partes.push('Tiene el freno puesto. ');
+  partes.push(!x.corre ? `✖ El guardián no la mira desde ${cuandoEs(x.visto)}.` : N.fresco ? 'El guardián la está mirando.' : `Dato del guardián: ${cuandoEs(x.visto)}.`);
   return partes;
 }
-function tarjetaCamino(c) {
+function tarjetaCamino(c, ext) {
   const caja = el('div', { class: 'tarjeta nov' });
   const opera = (Array.isArray(c.opera) ? c.opera : []).filter((o) => o && typeof o === 'object');
   const pasos = (Array.isArray(c.pasos) ? c.pasos : []).filter((p) => Array.isArray(p) && typeof p[0] === 'string' && p[0]);
+  const cuenta = ext && typeof ext === 'object' && typeof ext.vale === 'number' ? ext : null;
   const quien = (p) => (p[1] === 'v' ? 'vos' : 'el motor');
-  if (opera.length) {
-    for (const o of opera) caja.append(el('p', {}, el('b', {}, String(o.m ?? '') + ' · '), ...fraseOpera(o)));
-    const faltan = pasos.filter((p) => p[2] !== 'h');
-    if (faltan.length) caja.append(el('p', { class: 'gris' }, 'Falta: ' + faltan.map((p) => `${p[0]} (${quien(p)})`).join('; ') + '.'));
-    return caja;
+  if (!pasos.length && !opera.length && !cuenta) return null;
+  if (pasos.length) {
+    const hechos = pasos.filter((p) => p[2] === 'h').length, deTantos = pasos.length === 1 ? '1 paso' : pasos.length + ' pasos';
+    caja.append(el('p', {}, hechos === pasos.length ? (pasos.length === 1 ? 'El paso está hecho.' : `Los ${pasos.length} pasos están hechos.`) : `Van ${hechos} de ${deTantos}.`));
   }
-  if (!pasos.length) return null;
-  const hechos = pasos.filter((p) => p[2] === 'h').length, deTantos = pasos.length === 1 ? '1 paso' : pasos.length + ' pasos';
-  caja.append(el('p', {}, hechos === pasos.length ? (pasos.length === 1 ? 'El paso está hecho.' : `Los ${pasos.length} pasos están hechos.`) : `Van ${hechos} de ${deTantos}.`));
-  if (typeof c.nota === 'string' && c.nota) caja.append(el('p', {}, c.nota));   // cómo está hoy: «tu plata está quieta»
+  if (typeof c.nota === 'string' && c.nota) caja.append(el('p', {}, c.nota));   // cómo está hoy, con palabras de las rondas
+  for (const o of opera) caja.append(el('p', {}, el('b', {}, String(o.m ?? '') + ' · '), fraseOpera(o)));
+  if (cuenta) caja.append(el('p', {}, ...fraseCuenta(cuenta)));
+  if (!pasos.length) return caja;
   const lista = el('ul', { class: 'pasos' });
   for (const p of pasos) {
     const est = p[2] === 'h' ? 'h' : p[2] === 'a' ? 'a' : 'f';
@@ -456,17 +475,15 @@ function tarjetaPapel(p) {
   const caja = el('div', { class: 'tarjeta nov' }), lugares = textos(p.lugares);
   caja.append(el('p', {}, 'El motor prueba ', el('b', {}, `${p.n} ${p.n === 1 ? 'combinación' : 'combinaciones'}`), ' de lugar, mercado y distancia al precio' + (lugares.length ? ', en ' + conY(lugares) : '') + (p.desde > 0 ? `, desde ${cuandoEs(p.desde)}` : '') + '. ', el('b', {}, 'Es en papel: no hay plata puesta.')));
   if (!p.corre) caja.append(el('p', {}, '✖ La prueba no está corriendo ahora' + (p.visto > 0 ? ` (último dato: ${cuandoEs(p.visto)})` : '') + '.'));
-  const top = (Array.isArray(p.top) ? p.top : []).filter((f) => Array.isArray(f) && typeof f[3] === 'number').slice(0, 3);
-  if (top.length) {
-    const lista = el('ul', { class: 'ops' });
-    for (const f of top) lista.append(el('li', {}, el('span', { class: 'que' }, `${f[0]} · ${f[1]} · a ${distancia(+f[2] || 0)} del precio`), el('span', { class: 'res ' + clase(f[3]) }, usd(f[3]))));
-    const todas = !(p.con > top.length);   // operaron tan pocas que no hay «mejores»: son todas las que hay
-    caja.append(el('p', { class: 'rot' }, todas ? (top.length === 1 ? 'La única que ya operó' : `Las ${top.length} que ya operaron`) : `Las ${top.length} que mejor vienen`), lista);
+  // 27/11 (mesa crítica): la prueba ENTERA, nunca las tres mejores. Cuántas ganan, cuántas pierden y todas juntas; y el
+  // número de papel lleva siempre las palabras «en papel» y va sin el verde ni el rojo de la plata.
+  if (typeof p.gana === 'number' && typeof p.pierde === 'number') {
+    const cero = Math.max(0, p.n - p.gana - p.pierde), una = (k, s, pl) => `${k} ${k === 1 ? s : pl}`;
+    caja.append(el('p', {}, el('b', {}, `${una(p.gana, 'gana', 'ganan')} y ${una(p.pierde, 'pierde', 'pierden')}`), cero ? `; ${una(cero, 'está', 'están')} en cero` : '', '. ', ...(typeof p.suma === 'number' ? ['Todas juntas: ', el('b', {}, usd(p.suma)), ' en papel.'] : [])));
   }
-  // Debajo, en gris y de a un renglón: cuántas operaron y con cuánto; que con pocas horas no dice nada; cuándo se elige.
-  const notas = [], usdOrden = top.length && top.every((f) => f[4] === top[0][4]) ? top[0][4] : 0;
-  const operaron = !top.length ? 'Todavía ninguna hizo una operación.' : p.con > 0 && p.n > p.con ? `Ya operaron ${p.con} de las ${p.n}.` : '';
-  if (operaron || usdOrden > 0) notas.push((operaron + (usdOrden > 0 ? ` Cada una, con órdenes de ${usdOrden} USD en papel.` : '')).trim());
+  // Debajo, en gris y de a un renglón: con cuánto prueba cada una; que con pocas horas no dice nada; cuándo se elige y se juzga.
+  const notas = [];
+  if (p.usd > 0) notas.push(`Cada una, con órdenes de ${p.usd} USD en papel.`);
   if (p.desde > 0 && Date.now() - p.desde < 12 * 3600e3) notas.push('Lleva pocas horas: estos números todavía no dicen nada.');
   // Las dos fechas de la prueba: cuándo se eligen las mejores y cuándo se la juzga. Las que ya pasaron no se dicen.
   const fechas = [];
@@ -478,20 +495,27 @@ function tarjetaPapel(p) {
 }
 // Lo que se fue mirando: plegado. Un segundo toque seguido no lo vuelve a cerrar (regla de diseño 4).
 let miradoAbierto = false, miradoToque = 0;
-const VEREDICTO = { v: '✔ vale la pena', e: '… en espera', d: '✖ descartado' };
+// 27/11 (mesa crítica): «en prueba con plata» es el lugar que está operando su prueba; va primero y en violeta (no es el
+// color de actuar ni el de ganar o perder). El signo y la palabra van siempre: el color nunca va solo.
+const VEREDICTO = { p: '● en prueba con plata', v: '✔ vale la pena', e: '… en espera', d: '✖ descartado' };
 function tarjetaMirado(n) {
-  const m = n.mirado.filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0] && ['v', 'e', 'd'].includes(x[1]));
+  const m = n.mirado.filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0] && ['p', 'v', 'e', 'd'].includes(x[1]));
   if (!m.length) return null;
-  const cuantos = { v: 0, e: 0, d: 0 }; for (const x of m) cuantos[x[1]]++;
-  const partes = [cuantos.v ? `${cuantos.v} ${cuantos.v === 1 ? 'vale' : 'valen'} la pena` : '', cuantos.e ? `${cuantos.e} en espera` : '', cuantos.d ? `${cuantos.d} ${cuantos.d === 1 ? 'descartada' : 'descartadas'}` : ''].filter(Boolean);
-  const caja = el('div', { class: 'tarjeta nov' }, el('p', {}, `${m.length === 1 ? '1 forma de ganar plata, mirada' : m.length + ' formas de ganar plata, miradas'}: ${conY(partes)}.`));
+  // Cuántas hay de cada veredicto lo dice la PC, contado antes de cualquier recorte (mirado_n): si no entraron todas en
+  // el mensaje, el resumen y el botón dicen igual las que son, y la lista avisa cuántas faltan.
+  const cuantos = { p: 0, v: 0, e: 0, d: 0 }, dichos = n.mirado_n && typeof n.mirado_n === 'object' ? n.mirado_n : null;
+  if (dichos) for (const k of Object.keys(cuantos)) cuantos[k] = dichos[k] > 0 ? Math.floor(dichos[k]) : 0;
+  if (!dichos || cuantos.p + cuantos.v + cuantos.e + cuantos.d < m.length) { for (const k of Object.keys(cuantos)) cuantos[k] = 0; for (const x of m) cuantos[x[1]]++; }
+  const total = cuantos.p + cuantos.v + cuantos.e + cuantos.d, faltan = total - m.length;
+  const partes = [cuantos.p ? `${cuantos.p} en prueba con plata` : '', cuantos.v ? `${cuantos.v} ${cuantos.v === 1 ? 'vale' : 'valen'} la pena` : '', cuantos.e ? `${cuantos.e} en espera` : '', cuantos.d ? `${cuantos.d} ${cuantos.d === 1 ? 'descartada' : 'descartadas'}` : ''].filter(Boolean);
+  const caja = el('div', { class: 'tarjeta nov' }, el('p', {}, `${total === 1 ? '1 forma de ganar plata, mirada' : total + ' formas de ganar plata, miradas'}: ${conY(partes)}.`));
   if (miradoAbierto) {
     const lista = el('ul', { class: 'mirado' });
     for (const x of m) lista.append(el('li', {}, el('span', { class: 'nom' }, x[0]), ' ', el('span', { class: 'ver ' + x[1] }, VEREDICTO[x[1]]), ...(typeof x[2] === 'string' && x[2] ? [el('span', { class: 'por' }, x[2])] : [])));
-    if (n.mirado_faltan > 0) lista.append(el('li', { class: 'gris' }, n.mirado_faltan === 1 ? 'Hay 1 más que no entró acá.' : `Hay ${n.mirado_faltan} más que no entraron acá.`));
+    if (faltan > 0) lista.append(el('li', { class: 'gris' }, faltan === 1 ? 'Hay 1 más que no entró acá: es la última de la lista.' : `Hay ${faltan} más que no entraron acá: son las últimas de la lista.`));
     caja.append(lista);
   }
-  const b = el('button', { class: 'otro', type: 'button', 'aria-expanded': String(miradoAbierto) }, miradoAbierto ? 'Cerrar la lista' : m.length === 1 ? 'Ver cuál es' : `Ver las ${m.length} formas`);
+  const b = el('button', { class: 'otro', type: 'button', 'aria-expanded': String(miradoAbierto) }, miradoAbierto ? 'Cerrar la lista' : total === 1 ? 'Ver cuál es' : `Ver las ${total} formas`);
   b.addEventListener('click', () => { if (Date.now() - miradoToque < 700) return; miradoToque = Date.now(); miradoAbierto = !miradoAbierto; pintarNovedades(); });
   caja.append(b);
   return caja;
@@ -499,7 +523,7 @@ function tarjetaMirado(n) {
 function seccionesNuevas(n) {
   if (!n) return [];
   const out = [], c = n.camino, p = n.papel;
-  const camino = c && typeof c === 'object' && typeof c.nombre === 'string' && c.nombre ? tarjetaCamino(c) : null;
+  const camino = c && typeof c === 'object' && typeof c.nombre === 'string' && c.nombre ? tarjetaCamino(c, n.ext) : null;
   if (camino) out.push(el('h2', {}, 'Lo nuevo: ' + c.nombre), camino);
   if (p && typeof p === 'object' && p.n > 0) out.push(el('h2', {}, 'En prueba, sin plata'), tarjetaPapel(p));
   const mirado = Array.isArray(n.mirado) ? tarjetaMirado(n) : null;
@@ -508,7 +532,7 @@ function seccionesNuevas(n) {
   if (out.length && viejo) out.splice(1, 0, el('p', { class: 'viejo' }, viejo));   // debajo del primer título
   return out;
 }
-const tocaArriba = el('div', {}), tocaAbajo = el('div', {}), nuevo = el('div', {});
+const tocaArriba = el('div', {}), tocaAbajo = el('div', {}), plataArriba = el('div', {}), plataAbajo = el('div', {}), nuevo = el('div', {});
 // Si no le toca nada, se dice en una línea, en el lugar de «Te toca» (27/11). Sólo cuando es cierto y recién dicho: lo
 // acaba de decir la PC (no es lo guardado en el teléfono), el archivo de las rondas está (n.t) y vino sin «toca», y
 // ninguna luz está en rojo (ahí lo que manda es lo que dice esa luz). Si no se sabe, no se dice nada.
@@ -517,23 +541,62 @@ function pintarNovedades() {
   const n = N.dato, t = n && n.toca && typeof n.toca === 'object' && typeof n.toca.que === 'string' && n.toca.que ? tarjetaToca(n) : null;
   const arriba = C.paso !== 'confirmar' && C.paso !== 'esperando' && !hayQueFrenarEnLaBolsa();
   const nada = !t && arriba && nadaQueHacer(n) ? el('p', { class: 'nadatoca' }, '✔ No te toca hacer nada ahora.') : null;
+  const plata = bloquePlata();
   tocaArriba.replaceChildren(...(t && arriba ? [t] : nada ? [nada] : []));
   tocaAbajo.replaceChildren(...(t && !arriba ? [t] : []));
+  plataArriba.replaceChildren(...(plata && arriba ? [plata] : []));
+  plataAbajo.replaceChildren(...(plata && !arriba ? [plata] : []));
   nuevo.replaceChildren(...seccionesNuevas(n));
   acomodarToca();
 }
-// «FRENAR TODO» NO SE PIERDE POR SUMAR «TE TOCA» (lo de siempre no se rompe). Con la letra del teléfono muy grande, o en
-// un teléfono chico, la tarjeta de arriba empujaría «Frenar todo» fuera de la primera pantalla. Ahí la tarjeta va justo
-// debajo de él: frenar sigue a la vista sin bajar con el dedo, y «Te toca» es lo que sigue. Se mide una sola vez por
-// cada tarjeta, letra y ancho (no en cada actualización), para que no cambie de lugar sola mientras se la lee.
-const lugarToca = { clave: '', abajo: false };
+// ---------- HOY CON PLATA Y EL RIESGO (27/11, la mesa crítica: «Te toca», «Hoy con plata» y el riesgo, en ese orden) ----------
+// Sólo plata de verdad, los dos lugares sumados: Hyperliquid lo lee la página; Extended lo dice la PC, y sale de lo que
+// vale la cuenta según su guardián (n.ext). Ningún número de papel va acá. Cuatro renglones: lo de hoy contra el objetivo;
+// lo más que puede perder hoy y cuánto va en total contra el tope; cuánta plata hay en cada lugar; y las comisiones de hoy.
+let plataHL = null;   // lo de Hyperliquid, que calcula pintar(): { dia, total, saldo, fee }
+function bloquePlata() {
+  if (!plataHL) return null;
+  const n = N.dato, x = n && n.ext && typeof n.ext === 'object' && typeof n.ext.vale === 'number' ? n.ext : null;
+  const lugar = (n && n.camino && typeof n.camino.nombre === 'string' && n.camino.nombre) || 'Extended';
+  // Si el guardián de ese lugar todavía no dice nada, vale la plata que anotó la conversación (y se dice cómo está).
+  const anotada = !x && n && Array.isArray(n.plata) ? n.plata.filter((p) => Array.isArray(p) && typeof p[0] === 'string' && p[0] && typeof p[1] === 'number') : [];
+  // Lo que lleva Extended cuenta como «de hoy» sólo si su base se tomó hoy; si es de otro día, se dice y no se suma.
+  const lleva = x && typeof x.lleva === 'number' ? x.lleva : null, deHoy = lleva != null && x.desde > 0 && diaDe(x.desde) === diaDe(Date.now());
+  const hoy = plataHL.dia + (deHoy ? lleva : 0), total = plataHL.total + (lleva ?? 0);
+  const opera = n && n.camino && Array.isArray(n.camino.opera) ? n.camino.opera : [];
+  const enJuego = !!x && (x.ordenes > 0 || !!x.pos || opera.some((o) => o && o.corre && !o.quieto && o.usd > 0));
+  const viejo = x && (!N.fresco || !x.corre) ? ` (dato de ${cuandoEs(x.visto)})` : '';
+  const caja = el('section', { class: 'plata', 'aria-label': 'Hoy con plata' });
+  caja.append(el('p', { class: 'hoy' }, 'Hoy con plata: ', el('b', { class: clase(hoy) }, usd(hoy)), ` (el objetivo es ${OBJETIVO_DIA} por día).` + (lleva != null && !deHoy ? ` Sin contar ${lugar}: su cuenta se mide desde ${x.desde > 0 ? cuandoEs(x.desde) : 'otro día'}.` : '')));
+  // Lo más que se puede perder hoy: el tope del día, salvo que lo que queda del tope total sea menos. Lo de Extended tiene su
+  // propio tope (el del programa) y se dice aparte. «Quedan»: lo que falta para el tope total, los dos lugares sumados.
+  const quedan = Math.max(0, TOPE_TOTAL + Math.min(0, total)), maxHL = Math.max(0, Math.min(TOPE_DIA, Math.max(0, -plataHL.dia) + quedan));
+  caja.append(el('p', {}, `Lo más que se puede perder hoy: ${plano(maxHL)}` + (enJuego && x.tope > 0 ? ` en Hyperliquid y ${plano(x.tope)} en ${lugar}` : '') + `. En total va ${usd(total)} de −${TOPE_TOTAL}: quedan ${plano(quedan)}.`));
+  caja.append(el('p', {}, `Plata: ${plano(plataHL.saldo)} en Hyperliquid` + (x ? ` y ${plano(x.vale)} en ${lugar}${viejo}` : anotada.map((p) => ` y ${plano(p[1])} en ${p[0]}` + (typeof p[2] === 'string' && p[2] ? ` (${p[2]})` : '')).join('')) + '.'));
+  const feeExt = n && n.ext && typeof n.ext === 'object' && typeof n.ext.fee === 'number' ? n.ext.fee : null;
+  caja.append(el('p', { class: 'gris' }, `Comisiones pagadas hoy: ${plano(Math.max(0, plataHL.fee))} en Hyperliquid` + (feeExt != null ? ` y ${plano(Math.max(0, feeExt))} en ${lugar}` : '') + '.' + (plataHL.fee < -0.005 ? ` Hyperliquid te devolvió ${plano(-plataHL.fee)}.` : '')));
+  return caja;
+}
+// «FRENAR TODO» NO SE PIERDE POR LO QUE SE SUMA ARRIBA (lo de siempre no se rompe). Con la letra del teléfono muy grande,
+// o en un teléfono chico, lo de arriba empujaría «Frenar todo» fuera de la primera pantalla. Ahí baja primero «Hoy con
+// plata» y, si no alcanza, también «Te toca»: van justo debajo de «Frenar todo», en el mismo orden. Se mide una sola vez
+// por cada tarjeta, letra y ancho (no en cada actualización), para que nada cambie de lugar solo mientras se lo lee.
+const lugarArriba = { clave: '', plata: false, toca: false };   // true: va debajo de «Frenar todo»
 function acomodarToca() {
-  const t = tocaArriba.firstElementChild; if (!t || !t.classList.contains('tetoca')) return;
+  const t = tocaArriba.querySelector('.tetoca'), p = plataArriba.firstElementChild;
+  if (!t && !p) return;
   const b = control.querySelector('button.frenito'), alto = window.innerHeight;
   if (!b || !b.firstElementChild || !(alto > 0)) return;   // el botón todavía no se dibujó: pintarControl llama de nuevo al final
-  const clave = [t.textContent, U, window.innerWidth, C.paso].join('|');
-  if (lugarToca.clave !== clave) { lugarToca.clave = clave; lugarToca.abajo = b.firstElementChild.getBoundingClientRect().bottom + window.scrollY > alto; }
-  if (lugarToca.abajo) tocaAbajo.replaceChildren(t);
+  const fuera = () => b.firstElementChild.getBoundingClientRect().bottom + window.scrollY > alto;
+  const clave = [t ? t.textContent : '', p ? p.childElementCount : 0, U, window.innerWidth, C.paso].join('|');
+  if (lugarArriba.clave !== clave) {
+    lugarArriba.clave = clave; lugarArriba.plata = lugarArriba.toca = false;
+    if (p && fuera()) { plataAbajo.replaceChildren(p); lugarArriba.plata = true; }
+    if (t && fuera()) { tocaAbajo.replaceChildren(t); lugarArriba.toca = true; }
+    return;
+  }
+  if (lugarArriba.plata && p) plataAbajo.replaceChildren(p);
+  if (lugarArriba.toca && t) tocaAbajo.replaceChildren(t);
 }
 
 // ---------- el sonido: una campanita cuando la ganancia de hoy llega a un dólar más ----------
@@ -886,6 +949,8 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   const usdc = (spot.balances || []).find((b) => b.coin === 'USDC');
   const saldo = usdc ? +usdc.total : 0;
   const diaCon = dia + abierta, totalCon = total + abierta;
+  // 27/11: lo de Hyperliquid para «Hoy con plata» y el riesgo (arriba de todo). Las comisiones de hoy salen de las llenadas.
+  plataHL = { dia: diaCon, total: totalCon, saldo, fee: deHoy.reduce((t, f) => t + (+f.fee || 0), 0) };
   const porMercado = new Map(); for (const o of nuestras) if (!o.isTrigger) porMercado.set(o.coin, (porMercado.get(o.coin) || 0) + 1);
   const demasiadas = [...porMercado.values()].some((n) => n > ORDENES_MAX);
   // Cuántos mercados tienen órdenes y cuántos esperan a su prueba en papel (lo dice la PC cuando contesta).
@@ -928,7 +993,7 @@ function pintar({ cuenta, perp, spot, ordenes, fills }) {
   grafAhora = { dias, hoy: hoyDia, abierta, cuenta };
   // 27/11: «Te toca» arriba de todo (o debajo de los botones de frenar, cuando lo primero es frenar) y, después de «Qué
   // está haciendo», lo nuevo: el camino del lugar nuevo, la prueba en papel y lo que se fue mirando.
-  app.replaceChildren(tocaArriba, luces, luzdet, control, tocaAbajo, tarjetas, ...(queHace(nuestras) || []), nuevo, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
+  app.replaceChildren(tocaArriba, plataArriba, luces, luzdet, control, tocaAbajo, plataAbajo,tarjetas, ...(queHace(nuestras) || []), nuevo, el('h2', {}, 'Ganancia por día'), grafico(dias, hoyDia, abierta, cuenta), sonido, el('h2', {}, 'Últimas operaciones'), lista, pie);
   pintarLuces();
   pintarNovedades();   // «No te toca hacer nada» depende de la luz del motor, que se acaba de decidir
 }
@@ -938,7 +1003,7 @@ function pintarError(e) {
   L.motor = pideEsperar
     ? { tipo: 'nada', corto: 'En espera', titulo: 'La bolsa pidió esperar', texto: [`Hay muchas lecturas juntas desde esta conexión. Pruebo de nuevo solo a las ${hora(esperaHasta)}.${viejo} El programa en la PC sigue igual.`], atencion: true }
     : { tipo: 'nada', corto: 'Sin leer', titulo: 'No puedo leer la cuenta', texto: [`El celu no llega a Hyperliquid (${e.message}). Pruebo de nuevo solo.${viejo} El programa en la PC sigue igual.`], atencion: true };
-  if (app.firstChild !== tocaArriba) app.replaceChildren(tocaArriba, luces, luzdet, control, tocaAbajo, nuevo);   // si ya había tarjetas, quedan: sólo cambia la luz
+  if (app.firstChild !== tocaArriba) app.replaceChildren(tocaArriba, plataArriba, luces, luzdet, control, tocaAbajo, plataAbajo,nuevo);   // si ya había tarjetas, quedan: sólo cambia la luz
   pintarLuces();
   pintarNovedades();
 }
@@ -948,7 +1013,7 @@ function arrancar() {
   if (!cuenta) { pedirCuenta(); return; }
   L.motor = { tipo: 'nada', corto: 'Leyendo', titulo: 'Leyendo la cuenta…', texto: [] }; L.abierta = null;
   cargarNovedades();   // lo último que dijo la PC, guardado en el teléfono: se ve enseguida, con su hora
-  app.replaceChildren(tocaArriba, luces, luzdet, control, tocaAbajo, nuevo); pintarLuces(); pintarNovedades();
+  app.replaceChildren(tocaArriba, plataArriba, luces, luzdet, control, tocaAbajo, plataAbajo,nuevo); pintarLuces(); pintarNovedades();
   fillsMem = null; ultimoDato = null;
   ordenesT = 0; ordenesMem = [];
   clearInterval(timer); actualizar(cuenta); timer = setInterval(() => actualizar(cuenta), CADA_MS);
